@@ -26,6 +26,9 @@ export const detail = (message: string) => writeLine(`  · ${message}`);
 
 export const json = (document: unknown) => writeLine(JSON.stringify(document));
 
+/** Exactly this text and a newline, for output other programs read (a refined prompt, rendered speech). */
+export const text = (message: string) => writeLine(message);
+
 export const note = (message: string, title?: string) =>
   Effect.gen(function* () {
     if (title !== undefined) {

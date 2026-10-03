@@ -65,7 +65,7 @@ const speakUntilStopped = (engine: SupertonicEngine, player: ReturnType<typeof m
     }
   });
 
-export const runNarrationWorker: Effect.Effect<void, unknown> = Effect.gen(function* () {
+export const runNarrationWorker = Effect.gen(function* () {
   // Installed first: the default action of SIGUSR2 would end the process while the models load.
   let stopSpeech = () => {};
   process.on(STOP_SPEECH_SIGNAL, () => stopSpeech());

@@ -67,7 +67,7 @@ const runWorker = Effect.gen(function* () {
 });
 
 /** Runs until the stop file appears; a start-up failure is written to status.json for `voxkey on` to report. */
-export const runDictationWorker: Effect.Effect<void, unknown> = Effect.gen(function* () {
+export const runDictationWorker = Effect.gen(function* () {
   if (!claimWorkerLock("dictation")) {
     return;
   }

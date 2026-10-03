@@ -6,13 +6,39 @@ import { NodeContext, NodeRuntime } from "@effect/platform-node";
 import { Effect, ParseResult } from "effect";
 
 import { CliUsageError } from "./cliUsageError.js";
+import { configCommand } from "./configCommand.js";
+import { devinCommand } from "./devinCommand.js";
+import { doctorCommand } from "./doctorCommand.js";
+import { hotkeyCheckCommand } from "./hotkeyCheckCommand.js";
+import { offCommand } from "./offCommand.js";
+import { onCommand } from "./onCommand.js";
+import { refineCommand } from "./refineCommand.js";
+import { renderCommand } from "./renderCommand.js";
 import { replyCommand } from "./replyCommand.js";
+import { resetCommand } from "./resetCommand.js";
+import { speakCommand } from "./speakCommand.js";
+import { statusCommand } from "./statusCommand.js";
 import * as TerminalUI from "./TerminalUI.js";
 import { voxkeyVersion } from "./voxkeyVersion.js";
+import { workerCommand } from "./workerCommand.js";
 
 const voxkey = Command.make("voxkey").pipe(
   Command.withDescription("Hold Shift to dictate into any text field and hear coding-agent replies read aloud."),
-  Command.withSubcommands([replyCommand]),
+  Command.withSubcommands([
+    onCommand,
+    offCommand,
+    statusCommand,
+    doctorCommand,
+    configCommand,
+    speakCommand,
+    renderCommand,
+    refineCommand,
+    devinCommand,
+    hotkeyCheckCommand,
+    resetCommand,
+    replyCommand,
+    workerCommand,
+  ]),
 );
 
 const exitCodeFor = (error: unknown) =>

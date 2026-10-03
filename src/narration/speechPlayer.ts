@@ -13,7 +13,7 @@ import type { Config } from "../config/configSchema.js";
 import { stateFolder } from "../state/statePaths.js";
 import { markdownToSpeech } from "./markdownToSpeech.js";
 import { chunkSpeech, SPEECH_CHUNK_CHARACTERS, speedForWordsPerMinute } from "./speechChunks.js";
-import type { SupertonicEngine } from "./supertonic.js";
+import type { SupertonicEngine, SupertonicError } from "./supertonic.js";
 import { encodeWav } from "./wavFile.js";
 
 export class PlaybackError extends Schema.TaggedError<PlaybackError>()("PlaybackError", {
@@ -72,7 +72,7 @@ export const speakMarkdown = (request: {
   readonly player: SpeechPlayer;
   readonly markdown: string;
   readonly voice: Voice;
-}): Effect.Effect<"completed" | "stopped", unknown> =>
+}): Effect.Effect<"completed" | "stopped", SupertonicError | PlaybackError> =>
   Effect.gen(function* () {
     const pieces = speechPieces(request.markdown);
     const speed = speedForWordsPerMinute(request.voice.wordsPerMinute);
@@ -99,7 +99,7 @@ export const renderMarkdownToWav = (request: {
   readonly markdown: string;
   readonly voice: Voice;
   readonly outputFile: string;
-}): Effect.Effect<number, unknown> =>
+}): Effect.Effect<number, SupertonicError> =>
   Effect.gen(function* () {
     const speed = speedForWordsPerMinute(request.voice.wordsPerMinute);
     const chunks = yield* Effect.forEach(speechPieces(request.markdown), (text) =>
