@@ -14,7 +14,8 @@
     "sourceMap": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "paths": { "@fugood/whisper.node": ["./src/dictation/whisperNode.d.ts"] }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "src/scripts/dev", "src/**/*.test.ts"]
