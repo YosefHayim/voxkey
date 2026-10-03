@@ -1,6 +1,6 @@
 /**
  * Supertonic 3 text-to-speech in onnxruntime-node: duration predictor → text encoder → 8 flow-matching
- * steps of the vector estimator → vocoder, the same pipeline as the Python `supertonic` package.
+ * steps of the vector estimator → vocoder, the same pipeline as the `supertonic` PyPI package.
  */
 
 import { readFileSync } from "node:fs";
@@ -33,7 +33,7 @@ const styleTensorSchema = Schema.Struct({ dims: Schema.Array(Schema.Number), dat
 
 const voiceStyleSchema = Schema.parseJson(Schema.Struct({ style_ttl: styleTensorSchema, style_dp: styleTensorSchema }));
 
-/** Quality steps; the Python worker used 8 too. */
+/** Quality steps; the old narration script used 8 too. */
 const FLOW_STEPS = 8;
 
 const fail = (issue: unknown) => new SupertonicError({ issue: issue instanceof Error ? issue.message : String(issue) });

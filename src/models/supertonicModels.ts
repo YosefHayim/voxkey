@@ -9,7 +9,7 @@ import { narrationVoices } from "../config/configSchema.js";
 import { stateFolder } from "../state/statePaths.js";
 import { downloadFile, type ModelDownloadError } from "./modelDownload.js";
 
-// The revision the Python supertonic 1.3.1 package pinned, so voices sound exactly as before.
+// The revision the supertonic 1.3.1 PyPI package pinned, so voices sound exactly as before.
 const SUPERTONIC_REVISION = "724fb5abbf5502583fb520898d45929e62f02c0b";
 
 const SUPERTONIC_REPOSITORY = "https://huggingface.co/Supertone/supertonic-3/resolve";

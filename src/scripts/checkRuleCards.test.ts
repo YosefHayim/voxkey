@@ -173,7 +173,7 @@ describe("rule-card format", () => {
   });
 
   it("accepts an existing snake_case ID rather than forcing a rename", () => {
-    const guide = guideWith([card({ id: "python.no_lambda", verify: "judgment", assertion: "Something asserted." })]);
+    const guide = guideWith([card({ id: "shell.no_eval", verify: "judgment", assertion: "Something asserted." })]);
 
     expect(checkRuleCards({ guide })).toEqual([]);
   });

@@ -1,6 +1,6 @@
 # voxkey code style
 
-This file is the prescriptive single source of truth for how code in this repository is written. It keeps the rule-card format voxkey inherited from dufflebag: one card per rule, machine-checked by `src/scripts/checkRuleCards.ts`.
+This file is the prescriptive single source of truth for how code in this repository is written. It uses the rule-card format: one card per rule, machine-checked by `src/scripts/checkRuleCards.ts`.
 
 A rule is not done until its verifier gates the same change, when the rule can be checked mechanically.
 
@@ -828,7 +828,7 @@ export const holdTransition = (state: HoldState, event: HoldEvent): readonly [Ho
 
 ## Golden path — adding a feature
 
-1. Add a row to `docs/PARITY.md` if the feature replaces dufflebag behavior.
+1. Add a row to `docs/PARITY.md` if the feature replaces behavior of the old voice feature.
 2. Put the pure decision in the capability folder that owns it (`dictation`, `narration`, `refine`, `agentHooks`, …) with a colocated test.
 3. Put the mechanism (native call, process, file) beside it and load native modules lazily.
 4. Add any setting to `src/config/configSchema.ts` with a title and description; add any environment variable to `src/config/environmentVariables.ts`.

@@ -54,8 +54,6 @@ const LANGUAGE_NAMES: Readonly<Record<string, string>> = {
   jsx: "JSX",
   md: "Markdown",
   markdown: "Markdown",
-  py: "Python",
-  python: "Python",
   sh: "Shell",
   sql: "SQL",
   ts: "TypeScript",
