@@ -62,6 +62,26 @@ describe("voxkey on --hooks-only and voxkey off in a scratch HOME", () => {
     expect(existsSync(path.join(home, ".grok", "hooks", "voxkey.json"))).toBe(false);
   });
 
+  it("deletes a settings file voxkey created once it is empty again, and keeps an empty file that was there before", () => {
+    rmSync(path.join(home, ".codex", "hooks.json"));
+    rmSync(path.join(home, ".claude", "settings.json"));
+    writeFileSync(path.join(home, ".grok", "other.json"), "{}\n");
+
+    expect(voxkey(["on", "--hooks-only"]).status).toBe(0);
+    expect(read(".codex/hooks.json")).toContain("reply --agent codex");
+    expect(read(".claude/settings.json")).toContain("reply --agent claude-code");
+
+    expect(voxkey(["off"]).status).toBe(0);
+    expect(existsSync(path.join(home, ".codex", "hooks.json"))).toBe(false);
+    expect(existsSync(path.join(home, ".claude", "settings.json"))).toBe(false);
+    expect(read(".grok/other.json")).toBe("{}\n");
+
+    writeFileSync(path.join(home, ".codex", "hooks.json"), "{}\n");
+    expect(voxkey(["on", "--hooks-only"]).status).toBe(0);
+    expect(voxkey(["off"]).status).toBe(0);
+    expect(read(".codex/hooks.json")).toBe("{}\n");
+  });
+
   it("skips agents that are not installed and leaves a broken settings file alone", () => {
     rmSync(path.join(home, ".grok"), { recursive: true });
     writeFileSync(path.join(home, ".codex", "hooks.json"), "{ not json");

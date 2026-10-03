@@ -117,6 +117,45 @@ describe("voxkey reply (the agent Stop hook)", () => {
     expect(queued()).toEqual([expect.objectContaining({ markdown: "First section\n\nSecond section\n\n- complete" })]);
   });
 
+  it("exits 0 with no output and queues nothing when --agent is unknown, missing, empty, or has extra arguments", () => {
+    writeFileSync(path.join(home, "config.json"), JSON.stringify({ narrationMode: "auto" }));
+    const stdin = JSON.stringify({ last_assistant_message: "Should not be queued" });
+    for (const args of [
+      ["--agent", "nosuch"],
+      [],
+      ["--agent"],
+      ["--agent="],
+      ["--bogus", "--agent", "renamed-agent"],
+    ]) {
+      const execution = spawnSync(process.execPath, ["--import", "tsx", mainScript, "reply", ...args], {
+        cwd: repositoryRoot,
+        input: stdin,
+        encoding: "utf8",
+        env: { ...process.env, VOXKEY_HOME: home },
+      });
+      expect([args.join(" "), execution.status, execution.stdout, execution.stderr]).toEqual([
+        args.join(" "),
+        0,
+        "",
+        "",
+      ]);
+    }
+    expect(queued()).toEqual([]);
+
+    const extra = spawnSync(
+      process.execPath,
+      ["--import", "tsx", mainScript, "reply", "--agent=codex", "--later-flag"],
+      {
+        cwd: repositoryRoot,
+        input: stdin,
+        encoding: "utf8",
+        env: { ...process.env, VOXKEY_HOME: home },
+      },
+    );
+    expect([extra.status, extra.stdout, extra.stderr]).toEqual([0, "", ""]);
+    expect(queued()).toHaveLength(1);
+  });
+
   it("exits 0 with no output for garbage input, a missing transcript, or a broken config", () => {
     for (const stdin of ["not json", "[]", JSON.stringify({ transcript_path: path.join(home, "missing.jsonl") })]) {
       const execution = runHook({ agent: "claude-code", stdin });

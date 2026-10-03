@@ -7,7 +7,7 @@ import { Effect, Option, Schema } from "effect";
 import { readConfigOrDefaults } from "../config/configFile.js";
 import { queueReply, type ReplyOrigin } from "../narration/inbox.js";
 import { isWorkerRunning, spawnWorker, startNarrationWorker } from "../worker/workerProcesses.js";
-import type { AgentId } from "./agentCatalog.js";
+import { type AgentId, agentIdSchema } from "./agentCatalog.js";
 import {
   agentReplyIdOf,
   directReply,
@@ -87,3 +87,21 @@ const queueAgentReply = (agent: AgentId) =>
 /** The reply hook prints nothing and succeeds whatever happens, so it can never block or confuse the agent. */
 export const runReplyHook = (agent: AgentId): Effect.Effect<void> =>
   queueAgentReply(agent).pipe(Effect.catchAllCause(() => Effect.void));
+
+/** The agent named by `--agent <id>` or `--agent=<id>`; none when it is missing or not an agent voxkey knows. */
+export const agentFromArguments = (args: ReadonlyArray<string>): Option.Option<AgentId> => {
+  const inline = args.find((argument) => argument.startsWith("--agent="));
+  if (inline !== undefined) {
+    return Schema.decodeUnknownOption(agentIdSchema)(inline.slice("--agent=".length));
+  }
+
+  const flagIndex = args.indexOf("--agent");
+  return flagIndex < 0 ? Option.none() : Schema.decodeUnknownOption(agentIdSchema)(args[flagIndex + 1]);
+};
+
+/**
+ * The hook from its raw arguments. A Claude Code Stop hook that exits 2 blocks the agent, so wrong, missing,
+ * or extra arguments (say, an agent ID renamed after the hook was registered) are a silent no-op.
+ */
+export const runReplyHookFromArguments = (args: ReadonlyArray<string>): Effect.Effect<void> =>
+  Option.match(agentFromArguments(args), { onNone: () => Effect.void, onSome: runReplyHook });

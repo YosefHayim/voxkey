@@ -21,6 +21,7 @@ export const stateFileNames = [
   "refine-choice.json",
   "refine-codex-last-good.txt",
   "refine-codex-failed.txt",
+  "created-hook-files.json",
 ] as const;
 
 export type StateFileName = (typeof stateFileNames)[number];

@@ -5,6 +5,7 @@ import { CliConfig, Command, ValidationError } from "@effect/cli";
 import { NodeContext, NodeRuntime } from "@effect/platform-node";
 import { Effect, ParseResult } from "effect";
 
+import { runReplyHookFromArguments } from "../agentHooks/replyHook.js";
 import { CliUsageError } from "./cliUsageError.js";
 import { configCommand } from "./configCommand.js";
 import { devinCommand } from "./devinCommand.js";
@@ -56,10 +57,13 @@ const reportFailure = (error: unknown) =>
 
 const invocation = process.argv.length <= 2 ? ["node", "voxkey", "--help"] : process.argv;
 
-const program = Command.run(voxkey, { name: "voxkey", version: voxkeyVersion })(invocation).pipe(
+const cliProgram = Command.run(voxkey, { name: "voxkey", version: voxkeyVersion })(invocation).pipe(
   Effect.catchAll(reportFailure),
   Effect.provide(NodeContext.layer),
   Effect.provide(CliConfig.layer({ showBuiltIns: false })),
 );
+
+// The Stop hook skips the CLI parser: a parser error exits 2, and exit 2 from a Claude Code Stop hook blocks the agent.
+const program = process.argv[2] === "reply" ? runReplyHookFromArguments(process.argv.slice(3)) : cliProgram;
 
 NodeRuntime.runMain(program);

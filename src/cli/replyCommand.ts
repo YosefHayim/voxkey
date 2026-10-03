@@ -1,14 +1,20 @@
 /** `voxkey reply --agent <id>`: the agent Stop hook that `voxkey on` registers. */
 
 import { Command, Options } from "@effect/cli";
+import { Option } from "effect";
 
-import { runReplyHook } from "../agentHooks/replyHook.js";
+import { runReplyHookFromArguments } from "../agentHooks/replyHook.js";
 
-const agentOption = Options.choice("agent", ["claude-code", "codex", "grok"] as const).pipe(
-  Options.withDescription("Which agent ran the hook"),
+// Free text, not a choice: an unknown agent must be a silent no-op, never a usage error (main.ts also routes
+// `reply` around the parser, so this command mostly documents the hook in --help).
+const agentOption = Options.text("agent").pipe(
+  Options.withDescription("Which agent ran the hook: claude-code, codex, or grok"),
+  Options.optional,
 );
 
-export const replyCommand = Command.make("reply", { agent: agentOption }, (args) => runReplyHook(args.agent)).pipe(
+export const replyCommand = Command.make("reply", { agent: agentOption }, (args) =>
+  runReplyHookFromArguments(Option.match(args.agent, { onNone: () => [], onSome: (agent) => ["--agent", agent] })),
+).pipe(
   Command.withDescription(
     "Agent Stop hook: queue the agent's finished reply for narration. Prints nothing and always exits 0.",
   ),

@@ -5,8 +5,8 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 import { Effect, Either, Option, Schema } from "effect";
-import { readTextIfPresent } from "../state/stateFiles.js";
-import { stateFolder } from "../state/statePaths.js";
+import { readJsonFile, readTextIfPresent, writeJsonAtomically } from "../state/stateFiles.js";
+import { stateFile, stateFolder } from "../state/statePaths.js";
 import { voxkeyInvocation } from "../worker/workerProcesses.js";
 import { type AgentHookTarget, agentHookTargets, agentIdSchema } from "./agentCatalog.js";
 import {
@@ -49,6 +49,21 @@ const writeSettings = (target: AgentHookTarget, text: string): void => {
   renameSync(staging, file);
 };
 
+// Settings files voxkey created, so `voxkey off` can delete one it leaves empty and keep any file that existed before.
+const createdFiles = (): ReadonlyArray<string> =>
+  Option.getOrElse(
+    readJsonFile({ path: stateFile("created-hook-files.json"), schema: Schema.Array(Schema.String) }),
+    () => [],
+  );
+
+const recordCreated = (request: { readonly file: string; readonly created: boolean }): void => {
+  const others = createdFiles().filter((file) => file !== request.file);
+  writeJsonAtomically({
+    path: stateFile("created-hook-files.json"),
+    value: request.created ? [...others, request.file] : others,
+  });
+};
+
 const isAgentInstalled = (target: AgentHookTarget) => existsSync(path.join(homedir(), target.homeFolder));
 
 const changeFor = (target: AgentHookTarget, change: HookChange["change"]): HookChange => ({
@@ -84,6 +99,9 @@ const registerOne = (target: AgentHookTarget): HookChange => {
 
       const backup = Option.isSome(current) ? backupFile(target) : undefined;
       writeSettings(target, edit.source);
+      if (Option.isNone(current)) {
+        recordCreated({ file: settingsPath(target), created: true });
+      }
       return { ...changeFor(target, "added"), ...(backup === undefined ? {} : { backup }) };
     },
   });
@@ -103,11 +121,13 @@ const unregisterOne = (target: AgentHookTarget): HookChange => {
       }
 
       const backup = backupFile(target);
-      if (target.ownFile && isEmptySettings(edit.source)) {
+      const createdByVoxkey = target.ownFile || createdFiles().includes(settingsPath(target));
+      if (createdByVoxkey && isEmptySettings(edit.source)) {
         rmSync(settingsPath(target), { force: true });
       } else {
         writeSettings(target, edit.source);
       }
+      recordCreated({ file: settingsPath(target), created: false });
       return { ...changeFor(target, "removed"), backup };
     },
   });
