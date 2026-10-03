@@ -6,11 +6,13 @@ import { NodeContext, NodeRuntime } from "@effect/platform-node";
 import { Effect, ParseResult } from "effect";
 
 import { CliUsageError } from "./cliUsageError.js";
+import { replyCommand } from "./replyCommand.js";
 import * as TerminalUI from "./TerminalUI.js";
 import { voxkeyVersion } from "./voxkeyVersion.js";
 
 const voxkey = Command.make("voxkey").pipe(
   Command.withDescription("Hold Shift to dictate into any text field and hear coding-agent replies read aloud."),
+  Command.withSubcommands([replyCommand]),
 );
 
 const exitCodeFor = (error: unknown) =>
