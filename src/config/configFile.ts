@@ -1,0 +1,43 @@
+/** Read and write voxkey's config.json; the file holds only the settings in configSchema. */
+
+import { Effect, Option, ParseResult, Schema } from "effect";
+import { readTextIfPresent, writeFileAtomically } from "../state/stateFiles.js";
+import { configFilePath } from "../state/statePaths.js";
+import { type Config, configSchema, defaultConfig } from "./configSchema.js";
+
+export class ConfigFileError extends Schema.TaggedError<ConfigFileError>()("ConfigFileError", {
+  path: Schema.String,
+  issue: Schema.String,
+}) {
+  get message(): string {
+    return `${this.path} is not a valid voxkey config: ${this.issue}`;
+  }
+}
+
+const decodeConfigText = Schema.decodeUnknownEither(Schema.parseJson(configSchema), { onExcessProperty: "error" });
+
+/** The saved config, or the defaults when no file exists yet. */
+export const readConfig: Effect.Effect<Config, ConfigFileError> = Effect.suspend(() => {
+  const filePath = configFilePath();
+  return Option.match(readTextIfPresent(filePath), {
+    onNone: () => Effect.succeed(defaultConfig),
+    onSome: (text) =>
+      Effect.mapError(
+        decodeConfigText(text),
+        (error) => new ConfigFileError({ path: filePath, issue: ParseResult.TreeFormatter.formatErrorSync(error) }),
+      ),
+  });
+});
+
+/** Workers read the config on every decision; a broken file means defaults, never a crashed worker. */
+export const readConfigOrDefaults: Effect.Effect<Config> = Effect.orElseSucceed(readConfig, () => defaultConfig);
+
+export const saveConfig = (config: Config): Effect.Effect<void, ConfigFileError> =>
+  Effect.try({
+    try: () =>
+      writeFileAtomically({
+        path: configFilePath(),
+        text: `${JSON.stringify(Schema.encodeSync(configSchema)(config), null, 2)}\n`,
+      }),
+    catch: (error) => new ConfigFileError({ path: configFilePath(), issue: String(error) }),
+  });

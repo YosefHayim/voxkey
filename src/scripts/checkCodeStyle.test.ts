@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkCodeStyle } from "./checkCodeStyle.js";
 
@@ -35,7 +35,9 @@ const guideWith = (ruleIds: ReadonlyArray<string>): string =>
     .concat("\n");
 
 const repositoryWith = (files: Readonly<Record<string, string>>): string => {
-  const repositoryRoot = mkdtempSync(join(tmpdir(), "dufflebag-style-"));
+  const scratchRoot = fileURLToPath(new URL("../../.scratch/", import.meta.url));
+  mkdirSync(scratchRoot, { recursive: true });
+  const repositoryRoot = mkdtempSync(join(scratchRoot, "style-"));
   repositories.push(repositoryRoot);
   Object.entries({ "CODE-STYLE.md": guideWith(["function.arrow-only"]), ...files }).forEach(([path, source]) => {
     mkdirSync(dirname(join(repositoryRoot, path)), { recursive: true });

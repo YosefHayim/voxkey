@@ -417,8 +417,10 @@ const NODE_RULES: ReadonlyArray<NodeRule> = [
   {
     ruleId: "effect.runtime-edge",
     kinds: ["application"],
-    message: "Effect.run calls belong only at src/cli/main.ts.",
-    matches: ({ node, file }) => file !== "src/cli/main.ts" && isCallOn(node, { owner: "Effect", method: /^run/u }),
+    message: "Effect.run calls belong only at src/cli/main.ts and in tests.",
+    // A colocated test is its own runtime edge.
+    matches: ({ node, file }) =>
+      file !== "src/cli/main.ts" && !file.endsWith(".test.ts") && isCallOn(node, { owner: "Effect", method: /^run/u }),
   },
   {
     ruleId: "presentation.terminal-ui",

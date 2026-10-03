@@ -4,3 +4,4 @@ coverage/
 .DS_Store
 docs/agent/
 src/scripts/dev/
+.scratch/

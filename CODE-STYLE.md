@@ -619,7 +619,7 @@ Why: `Promise.all` leaves Effect, so interruption and typed failures stop applyi
 ### One runtime edge
 [rule:effect.runtime-edge] · verify: `pnpm style`
 
-Only `src/cli/main.ts` starts the Effect runtime.
+Only `src/cli/main.ts` and colocated tests start the Effect runtime.
 
 ```ts
 // ✓ src/cli/main.ts
