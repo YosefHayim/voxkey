@@ -13,3 +13,13 @@ export const appendDictationLog = (line: string): void => {
     // A full disk or a removed folder only costs this one log line.
   }
 };
+
+/** A line in ~/.voxkey/narration-worker.log (the narration worker has no terminal). */
+export const appendNarrationLog = (line: string): void => {
+  try {
+    mkdirSync(voxkeyHome(), { recursive: true });
+    appendFileSync(stateFile("narration-worker.log"), `${new Date().toISOString()} ${line}\n`);
+  } catch {
+    // A full disk or a removed folder only costs this one log line.
+  }
+};

@@ -54,7 +54,7 @@ Status words:
 | Supertonic models auto-downloaded | Python `supertonic` (HF `Supertone/supertonic-3`) | `src/narration/supertonicModels.ts` | replaced | Same repo, same pinned revision `724fb5ab…`, plain HTTPS. |
 | `voice speak <text>` | `voiceCommand.ts`, `main.rs speak` | `voxkey speak <text>` | kept | |
 | `render --text` (print the speech document) | `main.rs render` | `voxkey render <markdown>` | kept | |
-| Tap Shift stops narration | `dictation_worker.rs`, `tts.rs` | `src/dictation/dictationWorker.ts` → `SIGUSR1` to the narration worker | replaced | The Rust single tap only reached a TTS server in its own process, so it could not stop speech in the narration worker; the signal works across processes. |
+| Tap Shift stops narration | `dictation_worker.rs`, `tts.rs` | `src/dictation/dictationWorker.ts` → `SIGUSR2` to the narration worker | replaced | The Rust single tap only reached a TTS server in its own process, so it could not stop speech in the narration worker; the signal works across processes. |
 | Double-tap Shift: stop narration if speaking, else refine the clipboard (clipboard mode), else toggle the narration mute | `dictation_worker.rs`, `narration_mute.rs` | `src/dictation/dictationWorker.ts`, `src/narration/narrationMute.ts` | kept | |
 | Narration waits while the mic is listening; starting a hold stops narration | `narration_worker.rs`, `dictation_worker.rs` | `src/narration/narrationWorker.ts` | kept | |
 | Narration runs in its own process, only while narration is on | `narration_worker.rs` | `src/narration/narrationWorker.ts` (`voxkey worker narration`) | kept | |
