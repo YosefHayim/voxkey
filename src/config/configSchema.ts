@@ -121,7 +121,7 @@ export const configSchema = Schema.Struct({
   refineModel: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }).annotations({
     title: "refine model",
     description:
-      "Model ID for the refine provider (e.g. gpt-5.3-codex-spark, grok-4.5, llama3.2). Unset: gpt-5.3-codex-spark.",
+      "Model ID for the refine provider (e.g. gpt-5.3-codex-spark, grok-4.5, llama3.2). Unset: gpt-5.3-codex-spark for codex, the provider's own models otherwise.",
   }),
   refineEffort: Schema.optionalWith(Schema.Literal("minimal", "low", "medium", "high", "xhigh"), {
     exact: true,
@@ -131,7 +131,7 @@ export const configSchema = Schema.Struct({
   }),
   refinePressEnter: withDefault(Schema.Boolean, false).annotations({
     title: "refine press Enter",
-    description: "Press Enter after the refined text is typed at the caret.",
+    description: "Press Enter after dictated text (refined or not) is typed at the caret.",
   }),
   refineSendTo: withDefault(Schema.Literal("caret", "cmux-new", "cmux-resume"), "caret").annotations({
     title: "refine send to",
