@@ -1,6 +1,6 @@
 /**
  * The part of @fugood/whisper.node voxkey uses. The package ships TypeScript sources without declarations,
- * so tsconfig `paths` points the import here instead of type-checking the package's own sources.
+ * so voxkey imports it through a constant specifier and describes it here.
  */
 
 export type TranscribeOptions = {
@@ -26,10 +26,11 @@ export type WhisperContext = {
   readonly release: () => Promise<void>;
 };
 
-export declare const initWhisper: (options: {
-  readonly filePath: string;
-  readonly useGpu?: boolean;
-  readonly useFlashAttn?: boolean;
-}) => Promise<WhisperContext>;
-
-export declare const toggleNativeLog: (enable: boolean) => Promise<void>;
+export type WhisperModule = {
+  readonly initWhisper: (options: {
+    readonly filePath: string;
+    readonly useGpu?: boolean;
+    readonly useFlashAttn?: boolean;
+  }) => Promise<WhisperContext>;
+  readonly toggleNativeLog: (enable: boolean) => Promise<void>;
+};

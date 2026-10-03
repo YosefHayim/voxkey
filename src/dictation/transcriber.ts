@@ -7,7 +7,6 @@ import { availableParallelism } from "node:os";
 import path from "node:path";
 
 import { Effect, Option, Schema } from "effect";
-
 import type { Config } from "../config/configSchema.js";
 import {
   pcmFromSamples,
@@ -16,6 +15,7 @@ import {
   syntheticSpeech,
   tidyWhisperText,
 } from "./speechDetection.js";
+import type { WhisperModule } from "./whisperNode.js";
 
 export class TranscriberError extends Schema.TaggedError<TranscriberError>()("TranscriberError", {
   issue: Schema.String,
@@ -44,12 +44,21 @@ const pcmBuffer = (pcm: Int16Array): ArrayBuffer => {
   return buffer;
 };
 
+/** The package name, kept in a constant so TypeScript does not type-check the package's own sources. */
+export const WHISPER_PACKAGE = "@fugood/whisper.node";
+
+const importWhisper = async (): Promise<WhisperModule> => {
+  const loaded: unknown = await import(WHISPER_PACKAGE);
+  // The package ships no declarations (external type); whisperNode.d.ts describes the part voxkey calls.
+  return loaded as WhisperModule;
+};
+
 const THREADS = Math.min(Math.max(availableParallelism(), 2), 8);
 
 /** Load the model once; the transcriber decodes clips, and offers captions only while it is idle. */
 export const loadTranscriber = (modelPath: string) =>
   Effect.gen(function* () {
-    const whisper = yield* Effect.tryPromise({ try: () => import("@fugood/whisper.node"), catch: fail });
+    const whisper = yield* Effect.tryPromise({ try: importWhisper, catch: fail });
     yield* Effect.tryPromise({ try: () => whisper.toggleNativeLog(false), catch: fail });
     const context = yield* Effect.tryPromise({
       try: () => whisper.initWhisper({ filePath: modelPath, useGpu: true, useFlashAttn: true }),

@@ -12,6 +12,7 @@ import { readConfig } from "../config/configFile.js";
 import type { Config } from "../config/configSchema.js";
 import { readEnvironment } from "../config/environmentVariables.js";
 import { loadKeyboard } from "../dictation/keyboard.js";
+import { WHISPER_PACKAGE } from "../dictation/transcriber.js";
 import { missingSupertonicFiles, supertonicFolder } from "../models/supertonicModels.js";
 import { isWhisperModelPresent, selectWhisperModel, whisperModelPath } from "../models/whisperModels.js";
 import { findCli, runCli } from "../refine/agentCli.js";
@@ -225,7 +226,7 @@ export const runDoctorChecks: Effect.Effect<ReadonlyArray<DoctorCheck>> = Effect
     [
       { name: "koffi (keyboard)", load: () => import("koffi") },
       { name: "PvRecorder (microphone)", load: () => import("@picovoice/pvrecorder-node") },
-      { name: "whisper.node (dictation)", load: () => import("@fugood/whisper.node") },
+      { name: "whisper.node (dictation)", load: () => import(WHISPER_PACKAGE) },
       { name: "onnxruntime-node (narration)", load: () => import("onnxruntime-node") },
     ],
     nativeModuleCheck,
