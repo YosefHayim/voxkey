@@ -1,0 +1,9 @@
+# Every native module here ships a prebuilt darwin-arm64 binary in a platform package,
+# so none of their install scripts needs to run.
+allowBuilds:
+  "@fugood/whisper.node": false
+  "@parcel/watcher": false
+  esbuild: false
+  koffi: false
+  msgpackr-extract: false
+  onnxruntime-node: false

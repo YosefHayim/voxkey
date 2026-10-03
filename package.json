@@ -1,0 +1,71 @@
+{
+  "name": "voxkey",
+  "version": "0.1.0",
+  "description": "Hold Shift to dictate into any text field and hear coding-agent replies read aloud, all on your Mac.",
+  "type": "module",
+  "bin": {
+    "voxkey": "dist/src/cli/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "!dist/src/scripts",
+    "!dist/**/*.test.js"
+  ],
+  "scripts": {
+    "cli": "tsx src/cli/main.ts",
+    "prepare": "husky",
+    "prebuild": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "tsc && node -e \"require('node:fs').chmodSync('dist/src/cli/main.js',0o755)\"",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "style": "tsx src/scripts/reportCodeStyle.ts",
+    "style:guide": "tsx src/scripts/reportRuleCards.ts",
+    "bench": "tsx src/scripts/benchDictation.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "verify": "biome ci . && tsc --noEmit && pnpm style && pnpm style:guide . && vitest run && pnpm build"
+  },
+  "keywords": [
+    "dictation",
+    "speech-to-text",
+    "text-to-speech",
+    "whisper",
+    "supertonic",
+    "macos",
+    "claude-code",
+    "codex",
+    "grok"
+  ],
+  "author": "Yosef Hayim Sabag",
+  "license": "MIT",
+  "os": [
+    "darwin"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.18.0",
+  "dependencies": {
+    "@effect/cli": "0.76.0",
+    "@effect/platform": "0.97.0",
+    "@effect/platform-node": "0.108.0",
+    "@fugood/whisper.node": "1.1.3",
+    "@picovoice/pvrecorder-node": "1.2.9",
+    "effect": "3.22.0",
+    "jsonc-parser": "3.3.1",
+    "koffi": "3.3.2",
+    "onnxruntime-node": "1.30.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.2",
+    "@effect/vitest": "0.30.0",
+    "@types/node": "22.20.0",
+    "glob": "13.0.6",
+    "husky": "9.1.7",
+    "tsx": "4.22.4",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}
