@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,16 +10,30 @@ const scratchRoot = path.join(repositoryRoot, ".scratch");
 const mainScript = path.join(repositoryRoot, "src", "cli", "main.ts");
 
 let home = "";
+let sleepers: ReadonlyArray<ChildProcess> = [];
 
-// Pid files naming this live test process make voxkey believe both workers already run, so no worker starts.
-beforeEach(() => {
+// Pid files naming sleeping processes whose command lines end in `worker dictation` and `worker narration` make
+// voxkey believe both workers already run, so no real worker starts. The test kills only these sleepers.
+beforeEach(async () => {
   mkdirSync(scratchRoot, { recursive: true });
   home = mkdtempSync(path.join(scratchRoot, "reply-"));
-  writeFileSync(path.join(home, "dictation.pid"), String(process.pid));
-  writeFileSync(path.join(home, "narration.pid"), String(process.pid));
+  const spawned = (["dictation", "narration"] as const).map((kind) => {
+    const sleeper = spawn(process.execPath, ["-e", "setInterval(() => {}, 1 << 30)", "worker", kind], {
+      stdio: "ignore",
+    });
+    writeFileSync(path.join(home, `${kind}.pid`), String(sleeper.pid));
+    return { sleeper, ready: new Promise((resolve) => sleeper.once("spawn", resolve)) };
+  });
+  sleepers = spawned.map((entry) => entry.sleeper);
+  for (const entry of spawned) {
+    await entry.ready;
+  }
 });
 
 afterEach(() => {
+  for (const sleeper of sleepers) {
+    sleeper.kill("SIGKILL");
+  }
   rmSync(home, { recursive: true, force: true });
 });
 

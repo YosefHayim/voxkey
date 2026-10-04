@@ -16,7 +16,7 @@ import { selectWhisperModel } from "../models/whisperModels.js";
 import { discoverProviders, REASONING_EFFORTS } from "../refine/providerModels.js";
 import { saveRefineChoice } from "../refine/refineChoices.js";
 import { pickerModels, pickRefineTargetWithDialogs, type RefinePick } from "../refine/refinePicker.js";
-import { isWorkerRunning, startNarrationWorker } from "../worker/workerProcesses.js";
+import { isWorkerRunning, startNarrationWorker, stopNarrationSpeech } from "../worker/workerProcesses.js";
 import { CliUsageError } from "./cliUsageError.js";
 import { prepareModels, restartWorkers } from "./onCommand.js";
 import * as TerminalUI from "./TerminalUI.js";
@@ -85,6 +85,8 @@ const applyChange = (previous: Config, next: Config) =>
     }
 
     if (previous.narrationMode !== "off" && next.narrationMode === "off") {
+      // The worker reads the mode only between replies, so a reply being read is stopped now.
+      stopNarrationSpeech();
       yield* TerminalUI.detail("Narration stops within a second; dictation keeps running.");
       return;
     }

@@ -97,7 +97,7 @@ Status words:
 | The voice-folder and voice-config-file environment variables | `state_home`, `config`, `speakReply.ts`, `refine_choices.py` | `VOXKEY_HOME`, `VOXKEY_CONFIG_FILE` (`src/config/environmentVariables.ts`) | replaced | One folder, `~/.voxkey`, for config, state, models, and logs. |
 | Windows and Linux state paths | `state_home`, `speakReply.ts` | — | dropped | Every mechanism (CoreGraphics, `osascript`, `afplay`) is macOS-only, as the Rust worker effectively was. |
 | `uv` required for narration; the `.py` lockfile; the Rust build script; Ruff; the `.py` name checker | `text_to_speech.py.lock`, `buildVoiceWorker.sh`, `ruff.toml`, the `.py` name checker script | — | dropped | No `.py` script or Rust code remains. |
-| Process hygiene: pid + lock files, process groups, zombie-safe liveness, sweep of stray workers and pills | `worker_processes` | `src/worker/workerProcesses.ts` | replaced | Node `process.kill(pid, 0)`, detached process groups, `ps` sweep by argv in `reset`. |
+| Process hygiene: pid + lock files, process groups, zombie-safe liveness, sweep of stray workers and pills | `worker_processes` | `src/worker/workerProcesses.ts` | replaced | Detached process groups, `ps` sweep by argv in `reset`. A pid file counts (and its pid is signalled) only while `ps` shows that pid running the worker or pill command line, so a pid reused after a reboot is never trusted or killed (the Rust worker checked only that the pid was alive). |
 
 ## Open questions
 

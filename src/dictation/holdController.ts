@@ -3,13 +3,13 @@
  * hold table, and carry out its actions on the clip buffer, the queue, the pill, and narration.
  */
 
-import { Duration, Effect, Option } from "effect";
+import { Duration, Effect } from "effect";
 
 import { readConfigOrDefaults } from "../config/configFile.js";
 import { isNarrationSpeaking, queueReply, toggleNarrationMute } from "../narration/inbox.js";
 import { refinePrompt } from "../refine/refineAttempts.js";
 import { appendDictationLog } from "../worker/workerLog.js";
-import { readPid } from "../worker/workerProcesses.js";
+import { stopNarrationSpeech } from "../worker/workerProcesses.js";
 import type { StatusWriter } from "../worker/workerStatus.js";
 import { readClipboard, writeClipboard } from "./caret.js";
 import type { DictationQueue } from "./dictationQueue.js";
@@ -32,13 +32,7 @@ import type { ClipBuffer } from "./microphone.js";
 /** Stop speech in the narration worker; true when something was being spoken. */
 const stopNarration = (): boolean => {
   const speaking = isNarrationSpeaking();
-  Option.map(readPid("narration.pid"), (pid) => {
-    try {
-      process.kill(pid, "SIGUSR2");
-    } catch {
-      // The narration worker already exited.
-    }
-  });
+  stopNarrationSpeech();
   return speaking;
 };
 

@@ -62,7 +62,42 @@ export const isProcessAlive = (pid: number): boolean => {
   return !isZombie(pid);
 };
 
-export const isWorkerRunning = (kind: WorkerKind): boolean => Option.exists(readPid(pidFile(kind)), isProcessAlive);
+const PROCESS_ROW = /^\s*(\S+)\s+(.*)$/u;
+
+// What each pid file stands for. A pid can be reused by another program (say after a reboot), so a pid file is
+// trusted, and its pid signalled, only while that pid still runs this command line.
+const isNamedProcess = (name: PidFileName, commandLine: string): boolean => {
+  switch (name) {
+    case "dictation.pid":
+      return commandLine.endsWith(" worker dictation");
+    case "narration.pid":
+      return commandLine.endsWith(" worker narration");
+    case "pill.pid":
+      return commandLine.includes("osascript -l JavaScript") && commandLine.includes(voxkeyHome());
+  }
+};
+
+/** The pid in a pid file, while that process is alive (not a zombie) and still the voxkey process the file names. */
+export const runningPid = (name: PidFileName): Option.Option<number> =>
+  Option.filter(readPid(name), (pid) => {
+    const row = PROCESS_ROW.exec(
+      spawnSync("ps", ["-o", "state=,args=", "-p", String(pid)], { encoding: "utf8" }).stdout.trim(),
+    );
+    return row !== null && !(row[1] || "").startsWith("Z") && isNamedProcess(name, row[2] || "");
+  });
+
+export const isWorkerRunning = (kind: WorkerKind): boolean => Option.isSome(runningPid(pidFile(kind)));
+
+/** Stop speech in the narration worker now (it handles SIGUSR2); nothing when no narration worker runs. */
+export const stopNarrationSpeech = (): void => {
+  Option.map(runningPid("narration.pid"), (pid) => {
+    try {
+      process.kill(pid, "SIGUSR2");
+    } catch {
+      // The narration worker exited meanwhile.
+    }
+  });
+};
 
 const processGroupOf = (pid: number): number =>
   Number(spawnSync("ps", ["-o", "pgid=", "-p", String(pid)], { encoding: "utf8" }).stdout.trim());
@@ -93,7 +128,7 @@ export const signalGroup = (pid: number, signal: NodeJS.Signals): void => {
  */
 export const claimWorkerLock = (kind: WorkerKind): boolean => {
   mkdirSync(voxkeyHome(), { recursive: true });
-  const ownerAlive = () => Option.exists(readPid(pidFile(kind)), (pid) => pid !== process.pid && isProcessAlive(pid));
+  const ownerAlive = () => Option.exists(runningPid(pidFile(kind)), (pid) => pid !== process.pid);
   if (ownerAlive()) {
     return false;
   }
@@ -169,12 +204,14 @@ const waitUntil = (request: { readonly done: () => boolean; readonly timeoutMs: 
 /** Ask both workers to stop, then force any survivor, and clear their pid, lock, and stop files. */
 export const stopWorkers: Effect.Effect<void> = Effect.gen(function* () {
   touchFile(stateFile("stop"));
-  const pids = (["dictation", "narration"] as const).flatMap((kind) => Option.toArray(readPid(pidFile(kind))));
+  const running = () =>
+    (["dictation.pid", "narration.pid"] as const).flatMap((name) => Option.toArray(runningPid(name)));
+  const pids = running();
   for (const pid of pids) {
     signalGroup(pid, "SIGTERM");
   }
   yield* waitUntil({ done: () => pids.every((pid) => !isProcessAlive(pid)), timeoutMs: 4_000 });
-  for (const pid of [...pids, ...Option.toArray(readPid("pill.pid"))]) {
+  for (const pid of [...running(), ...Option.toArray(runningPid("pill.pid"))]) {
     signalGroup(pid, "SIGKILL");
   }
   for (const name of [

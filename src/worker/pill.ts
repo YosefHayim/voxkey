@@ -8,7 +8,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { Option } from "effect";
 import { removeIfPresent } from "../state/stateFiles.js";
 import { stateFile, voxkeyHome } from "../state/statePaths.js";
-import { readPid, signalGroup, writePid } from "./workerProcesses.js";
+import { runningPid, signalGroup, writePid } from "./workerProcesses.js";
 
 // AppKit through the JXA Objective-C bridge. The script exits when the worker it serves is gone.
 const PILL_SCRIPT = String.raw`
@@ -216,7 +216,7 @@ export const startPill = (workerPid: number): ChildProcess => {
 };
 
 export const stopPill = (): void => {
-  Option.map(readPid("pill.pid"), (pid) => signalGroup(pid, "SIGKILL"));
+  Option.map(runningPid("pill.pid"), (pid) => signalGroup(pid, "SIGKILL"));
   removeIfPresent(stateFile("pill.pid"));
 };
 
