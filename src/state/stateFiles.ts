@@ -16,6 +16,8 @@ import path from "node:path";
 
 import { Option, Schema } from "effect";
 
+import { voxkeyHome } from "./statePaths.js";
+
 // Dictated, refined, and reply text is readable by the user alone: its files are 0600 and its folders 0700.
 const PRIVATE_FILE_MODE = 0o600;
 
@@ -25,6 +27,18 @@ const PRIVATE_FOLDER_MODE = 0o700;
 export const makePrivateFolder = (folder: string): void => {
   mkdirSync(folder, { recursive: true, mode: PRIVATE_FOLDER_MODE });
   chmodSync(folder, PRIVATE_FOLDER_MODE);
+};
+
+// Folders under voxkey's home are tightened; a folder the user picked (say, for VOXKEY_CONFIG_FILE) keeps its mode.
+const makeFolderFor = (filePath: string): void => {
+  const folder = path.dirname(filePath);
+  const relative = path.relative(voxkeyHome(), folder);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    mkdirSync(folder, { recursive: true, mode: PRIVATE_FOLDER_MODE });
+    return;
+  }
+
+  makePrivateFolder(folder);
 };
 
 /**
@@ -58,7 +72,7 @@ export const writePrivateFile = (request: {
 };
 
 export const writeFileAtomically = (request: { readonly path: string; readonly text: string }): void => {
-  mkdirSync(path.dirname(request.path), { recursive: true, mode: PRIVATE_FOLDER_MODE });
+  makeFolderFor(request.path);
   const staging = path.join(path.dirname(request.path), `.${path.basename(request.path)}.${randomUUID()}.partial`);
   writeFileSync(staging, request.text, { encoding: "utf8", mode: PRIVATE_FILE_MODE });
   renameSync(staging, request.path);
@@ -104,6 +118,6 @@ export const readJsonFile = <Value, Encoded>(request: {
 export const removeIfPresent = (filePath: string): void => rmSync(filePath, { force: true });
 
 export const touchFile = (filePath: string): void => {
-  mkdirSync(path.dirname(filePath), { recursive: true, mode: PRIVATE_FOLDER_MODE });
+  makeFolderFor(filePath);
   writeFileSync(filePath, "");
 };

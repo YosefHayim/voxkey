@@ -4,11 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { makePrivateFolder, writePrivateFile } from "./stateFiles.js";
+import { makePrivateFolder, writeFileAtomically, writePrivateFile } from "./stateFiles.js";
 
 const scratchRoot = fileURLToPath(new URL("../../.scratch/", import.meta.url));
 
 let folder = "";
+const inheritedVoxkeyHome = process.env.VOXKEY_HOME;
 
 beforeEach(() => {
   mkdirSync(scratchRoot, { recursive: true });
@@ -16,6 +17,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  if (inheritedVoxkeyHome === undefined) delete process.env.VOXKEY_HOME;
+  else process.env.VOXKEY_HOME = inheritedVoxkeyHome;
   rmSync(folder, { recursive: true, force: true });
 });
 
@@ -55,5 +58,22 @@ describe("private files", () => {
     makePrivateFolder(inbox);
 
     expect(permissions(inbox)).toBe(0o700);
+  });
+
+  it("tightens voxkey's own folders on an atomic write, and leaves a folder the user picked as it was", () => {
+    const home = path.join(folder, "voxkey-home");
+    const chosen = path.join(folder, "dotfiles");
+    mkdirSync(home, { mode: 0o755 });
+    mkdirSync(chosen, { mode: 0o755 });
+    chmodSync(home, 0o755);
+    chmodSync(chosen, 0o755);
+    process.env.VOXKEY_HOME = home;
+
+    writeFileAtomically({ path: path.join(home, "refine-codex-last-good.txt"), text: "gpt-5\n" });
+    writeFileAtomically({ path: path.join(chosen, "voxkey.json"), text: "{}\n" });
+
+    expect(permissions(home)).toBe(0o700);
+    expect(permissions(path.join(home, "refine-codex-last-good.txt"))).toBe(0o600);
+    expect(permissions(chosen)).toBe(0o755);
   });
 });

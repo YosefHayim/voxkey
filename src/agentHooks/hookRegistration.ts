@@ -1,11 +1,11 @@
 /** `voxkey on` / `voxkey off` for agent hooks: add or remove voxkey's Stop entry in each installed agent's settings. */
 
-import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
 import { Effect, Either, Option, Schema } from "effect";
-import { readJsonFile, readTextIfPresent, writeJsonAtomically } from "../state/stateFiles.js";
+import { makePrivateFolder, readJsonFile, readTextIfPresent, writeJsonAtomically } from "../state/stateFiles.js";
 import { stateFile, stateFolder } from "../state/statePaths.js";
 import { voxkeyInvocation } from "../worker/workerProcesses.js";
 import { type AgentHookTarget, agentHookTargets, agentIdSchema } from "./agentCatalog.js";
@@ -25,11 +25,13 @@ export type HookChange = Schema.Schema.Type<typeof hookChangeSchema>;
 const settingsPath = (target: AgentHookTarget) => path.join(homedir(), target.settingsFile);
 
 const backupFile = (target: AgentHookTarget): string => {
+  // Agent settings can hold tokens, so their copies are private like the rest of voxkey's state.
   const folder = stateFolder("backups");
-  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  makePrivateFolder(folder);
   const stamp = new Date().toISOString().replace(/[:.]/gu, "-");
   const backup = path.join(folder, `${target.agent}-${path.basename(target.settingsFile)}-${stamp}`);
   copyFileSync(settingsPath(target), backup);
+  chmodSync(backup, 0o600);
   return backup;
 };
 

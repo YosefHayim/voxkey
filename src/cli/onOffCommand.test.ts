@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -7,6 +8,7 @@ import {
   readFileSync,
   readlinkSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -60,6 +62,24 @@ const voxkey = (args: ReadonlyArray<string>) =>
 const read = (relative: string) => readFileSync(path.join(home, relative), "utf8");
 
 describe("voxkey on --hooks-only and voxkey off in a scratch HOME", () => {
+  it("keeps settings backups private, tightening a backups folder an older build left open", () => {
+    const backups = path.join(home, ".voxkey", "backups");
+    mkdirSync(backups, { recursive: true });
+    chmodSync(path.join(home, ".voxkey"), 0o755);
+    chmodSync(backups, 0o755);
+    chmodSync(path.join(home, ".claude", "settings.json"), 0o644);
+
+    expect(voxkey(["on", "--hooks-only"]).status).toBe(0);
+
+    const permissions = (file: string) => statSync(file).mode & 0o777;
+    expect(permissions(path.join(home, ".voxkey"))).toBe(0o700);
+    expect(permissions(backups)).toBe(0o700);
+    for (const backup of readdirSync(backups)) {
+      expect(permissions(path.join(backups, backup))).toBe(0o600);
+    }
+    expect(permissions(path.join(home, ".claude", "settings.json"))).toBe(0o644);
+  });
+
   it("adds one reply hook per installed agent, backs files up, and removes exactly what it added", () => {
     const on = voxkey(["on", "--hooks-only"]);
     expect(on.status).toBe(0);

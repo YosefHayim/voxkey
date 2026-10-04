@@ -92,9 +92,9 @@ export const downloadFile = (request: DownloadRequest): Effect.Effect<void, Mode
         try: () => mkdirSync(path.dirname(request.destination), { recursive: true }),
         catch: failed,
       });
-      const before = fileIdentity(request.destination);
+      const before = yield* Effect.try({ try: () => fileIdentity(request.destination), catch: failed });
       yield* Effect.mapError(waitForLock(`${request.destination}.lock`), failed);
-      const current = fileIdentity(request.destination);
+      const current = yield* Effect.try({ try: () => fileIdentity(request.destination), catch: failed });
       if (current !== "" && current !== before) {
         return;
       }

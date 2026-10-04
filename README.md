@@ -156,7 +156,7 @@ Everything voxkey writes lives in `~/.voxkey` (or `$VOXKEY_HOME`):
 | `prompts/`, `audio/`, `devin/` | Refined prompts handed to cmux, narration audio being played, and Devin session exports. |
 | `*.pid`, `*.lock`, `stop`, `narration-muted` | Worker bookkeeping. |
 
-What you dictate and what agents reply stays yours: every file that holds it is created readable by you alone (mode 0600), in folders only you can open (0700, `~/.voxkey` included). voxkey tightens such a file or folder whenever it finds one looser.
+What you dictate and what agents reply stays yours: every file voxkey keeps in `~/.voxkey` that holds it, and every settings backup, is created readable by you alone (mode 0600), in folders only you can open (0700, `~/.voxkey` included). voxkey tightens such a file or folder whenever it finds one looser. A file you ask for elsewhere, like `voxkey speak --output <file>`, keeps your usual permissions, and so does the folder of a `VOXKEY_CONFIG_FILE` you point outside `~/.voxkey`.
 
 Agent hooks: `~/.claude/settings.json`, `~/.codex/hooks.json`, and `~/.grok/hooks/voxkey.json` each get one Stop entry whose command ends in `reply --agent <id>`; `voxkey off` removes exactly that entry.
 
