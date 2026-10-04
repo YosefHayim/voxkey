@@ -38,6 +38,14 @@
     "codex",
     "grok"
   ],
+  "homepage": "https://github.com/YosefHayim/voxkey#readme",
+  "bugs": {
+    "url": "https://github.com/YosefHayim/voxkey/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YosefHayim/voxkey.git"
+  },
   "author": "Yosef Hayim Sabag",
   "license": "MIT",
   "os": [
