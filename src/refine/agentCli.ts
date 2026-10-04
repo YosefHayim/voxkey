@@ -116,6 +116,10 @@ export const runCli = (request: {
 /** Trimmed stdout, else trimmed stderr. */
 export const cliOutputText = (run: CliRun): string => run.stdout.trim() || run.stderr.trim();
 
+/** Both streams of a failed run, stderr first: partial stdout must never hide the error that explains the exit. */
+export const cliFailureText = (run: CliRun): string =>
+  [run.stderr.trim(), run.stdout.trim()].filter((text) => text !== "").join("\n");
+
 /** Non-blank lines of stdout and stderr; a CLI that is missing, fails to start, or times out has none. */
 export const runCliLines = (request: {
   readonly executable: string;

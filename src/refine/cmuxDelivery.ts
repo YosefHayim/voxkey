@@ -10,7 +10,7 @@ import { Effect, Option, Schema } from "effect";
 import type { Config } from "../config/configSchema.js";
 import { writePrivateFile } from "../state/stateFiles.js";
 import { stateFolder } from "../state/statePaths.js";
-import { cliOutputText, findCli, runCli } from "./agentCli.js";
+import { cliFailureText, findCli, runCli } from "./agentCli.js";
 
 export class CmuxDeliveryFailed extends Schema.TaggedError<CmuxDeliveryFailed>()("CmuxDeliveryFailed", {
   step: Schema.String,
@@ -54,7 +54,7 @@ const cmuxJson = (request: { readonly args: ReadonlyArray<string>; readonly step
       environment: { CMUX_QUIET: "1" },
     }).pipe(Effect.mapError((error) => new CmuxDeliveryFailed({ step: request.step, detail: error.message })));
     if (cliRun.exitCode !== 0) {
-      return yield* new CmuxDeliveryFailed({ step: request.step, detail: cliOutputText(cliRun) || "failed" });
+      return yield* new CmuxDeliveryFailed({ step: request.step, detail: cliFailureText(cliRun) || "failed" });
     }
 
     const lastJsonLine = cliRun.stdout

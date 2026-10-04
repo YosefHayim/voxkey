@@ -3,8 +3,14 @@
  * failed-model lists, so the next dictation skips models that already failed for this account.
  */
 
-import { Option, Schema } from "effect";
-import { readJsonFile, readTextIfReadable, writeFileAtomically, writeJsonAtomically } from "../state/stateFiles.js";
+import { Either, Option, Schema } from "effect";
+import {
+  readJsonFile,
+  readTextIfPresent,
+  readTextIfReadable,
+  writeFileAtomically,
+  writeJsonAtomically,
+} from "../state/stateFiles.js";
 import { stateFile } from "../state/statePaths.js";
 
 export const DEFAULT_REFINE_MODEL = "gpt-5.3-codex-spark";
@@ -27,13 +33,21 @@ export const readSavedChoice = (): Option.Option<SavedChoice> =>
 export const codexLastGoodModel = (): string =>
   Option.getOrElse(readTextIfReadable(stateFile("refine-codex-last-good.txt")), () => "").trim();
 
-export const codexFailedModels = (): ReadonlySet<string> =>
-  new Set(
-    Option.getOrElse(readTextIfReadable(stateFile("refine-codex-failed.txt")), () => "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line !== ""),
+/** The failed-model list; a left when the file exists but cannot be read, so an update never replaces it unseen. */
+const readCodexFailedModels = (): Either.Either<ReadonlySet<string>, unknown> =>
+  Either.map(
+    Either.try(() => readTextIfPresent(stateFile("refine-codex-failed.txt"))),
+    (text) =>
+      new Set(
+        Option.getOrElse(text, () => "")
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line !== ""),
+      ),
   );
+
+export const codexFailedModels = (): ReadonlySet<string> =>
+  Either.getOrElse(readCodexFailedModels(), () => new Set<string>());
 
 const writeCodexFailedModels = (failed: ReadonlySet<string>): void =>
   writeFileAtomically({
@@ -42,10 +56,12 @@ const writeCodexFailedModels = (failed: ReadonlySet<string>): void =>
   });
 
 export const markCodexModelFailed = (model: string): void => {
-  const failed = codexFailedModels();
-  if (model.trim() !== "" && !failed.has(model.trim())) {
-    writeCodexFailedModels(new Set([...failed, model.trim()]));
+  const failed = readCodexFailedModels();
+  if (Either.isLeft(failed) || model.trim() === "" || failed.right.has(model.trim())) {
+    return;
   }
+
+  writeCodexFailedModels(new Set([...failed.right, model.trim()]));
 };
 
 /** Remember the pick for the next refine; a Codex model also becomes last-good and loses its failed mark. */
@@ -73,8 +89,8 @@ export const saveRefineChoice = (request: {
   }
 
   writeFileAtomically({ path: stateFile("refine-codex-last-good.txt"), text: `${model}\n` });
-  const failed = codexFailedModels();
-  if (failed.has(model)) {
-    writeCodexFailedModels(new Set([...failed].filter((name) => name !== model)));
+  const failed = readCodexFailedModels();
+  if (Either.isRight(failed) && failed.right.has(model)) {
+    writeCodexFailedModels(new Set([...failed.right].filter((name) => name !== model)));
   }
 };

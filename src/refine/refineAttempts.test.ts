@@ -134,6 +134,15 @@ describe("refine rotation", () => {
     expect(Exit.isFailure(exit)).toBe(true);
   });
 
+  it("keeps a failed CLI's stderr in the failure even when it printed to stdout, so the error still rotates", async () => {
+    writeFakeCli("grok", 'echo "Here is a cleaner prompt:"; echo "connection refused by the model host" >&2; exit 1');
+    const attempt = { provider: "grok" as const, model: "", effort: "", draft: "make a branch for the login fix" };
+    const failure = await Effect.runPromise(Effect.flip(refineWithProvider(attempt)));
+
+    expect(failure.detail).toBe("connection refused by the model host\nHere is a cleaner prompt:");
+    expect(shouldRotate(failure.detail)).toBe(true);
+  });
+
   it("refines with codex, keeps protected literals, and remembers the working model", async () => {
     fakeCodex({ reply: "finish-and-push: run `pnpm verify` then open a PR", badModels: [] });
     const refined = await refine("uh run `pnpm verify` and like open a pr dont merge");

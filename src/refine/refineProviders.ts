@@ -6,7 +6,7 @@ import path from "node:path";
 import { Effect, Either, Option, Schema } from "effect";
 import { makePrivateFolder, readTextIfReadable, removeIfPresent } from "../state/stateFiles.js";
 import { stateFolder } from "../state/statePaths.js";
-import { type CliRun, cliOutputText, findCli, runCli } from "./agentCli.js";
+import { type CliRun, cliFailureText, cliOutputText, findCli, runCli } from "./agentCli.js";
 import { providerIdSchema } from "./providerModels.js";
 import {
   checkRefinedPrompt,
@@ -68,7 +68,7 @@ const runSucceeded = (
     cliRun.exitCode === 0
       ? Effect.succeed(cliRun)
       : Effect.fail(
-          fail(attempt, cliOutputText(cliRun) || `${attempt.provider} exited with ${String(cliRun.exitCode)}`),
+          fail(attempt, cliFailureText(cliRun) || `${attempt.provider} exited with ${String(cliRun.exitCode)}`),
         ),
   );
 
@@ -111,7 +111,7 @@ const codexReply = (attempt: RefineAttempt, executable: string) =>
     );
     const detail = cliOutputText(execution.cliRun);
     if (execution.cliRun.exitCode !== 0 && execution.fileReply === "") {
-      return yield* Effect.fail(fail(attempt, detail || "codex exec failed"));
+      return yield* Effect.fail(fail(attempt, cliFailureText(execution.cliRun) || "codex exec failed"));
     }
 
     const fallbackLines = (replyTextFromJson(execution.cliRun.stdout) || detail)
