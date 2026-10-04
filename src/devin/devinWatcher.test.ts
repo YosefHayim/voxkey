@@ -83,4 +83,20 @@ describe("watchDevinSession", () => {
     expect(await Effect.runPromise(watchDevinSession({ exportFile: exportFile(), session }))).toBe(0);
     expect(queuedMarkdown()).toEqual(["Second answer"]);
   });
+
+  it("stops watching when Devin fails to start, even while the caller keeps running", async () => {
+    const program = Effect.gen(function* () {
+      const failure = yield* Effect.flip(
+        watchDevinSession({ exportFile: exportFile(), session: Effect.fail("devin was not found" as const) }),
+      );
+      // A watcher left running would by now have read the empty export, so it would take this turn for a new one.
+      yield* Effect.sleep("400 millis");
+      writeTurn("late-turn", "A turn no watcher should read");
+      yield* Effect.sleep("1500 millis");
+      return failure;
+    });
+
+    expect(await Effect.runPromise(program)).toBe("devin was not found");
+    expect(queuedMarkdown()).toEqual([]);
+  });
 });

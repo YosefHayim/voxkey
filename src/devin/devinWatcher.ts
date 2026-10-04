@@ -100,7 +100,8 @@ export const watchDevinExport = (exportFile: string): Effect.Effect<never> =>
 
 /**
  * Watch the export while `session` (Devin) runs, then long enough for a turn written as Devin exits to be seen,
- * settle, and be queued; the session's own value is returned.
+ * settle, and be queued; the session's own value is returned. However the session ends (a Devin that never started
+ * included), the watcher stops with it.
  */
 export const watchDevinSession = <Value, Failure>(request: {
   readonly exportFile: string;
@@ -108,8 +109,8 @@ export const watchDevinSession = <Value, Failure>(request: {
 }): Effect.Effect<Value, Failure> =>
   Effect.gen(function* () {
     const watcher = yield* Effect.fork(watchDevinExport(request.exportFile));
-    const value = yield* request.session;
-    yield* Effect.sleep(Duration.millis(TURN_SETTLE_MS + 2 * POLL_INTERVAL_MS));
-    yield* Fiber.interrupt(watcher);
-    return value;
+    return yield* Effect.ensuring(
+      Effect.zipLeft(request.session, Effect.sleep(Duration.millis(TURN_SETTLE_MS + 2 * POLL_INTERVAL_MS))),
+      Fiber.interrupt(watcher),
+    );
   });

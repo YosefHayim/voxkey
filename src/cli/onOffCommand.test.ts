@@ -117,6 +117,20 @@ describe("voxkey on --hooks-only and voxkey off in a scratch HOME", () => {
     expect(readdirSync(path.join(home, ".voxkey", "backups"))).toEqual([expect.stringMatching(/^codex-/u)]);
   });
 
+  it("does not claim there is no hook when the only agent's settings could not be read", () => {
+    for (const folder of [".codex", ".grok"]) {
+      rmSync(path.join(home, folder), { recursive: true });
+    }
+    const settings = path.join(home, ".claude", "settings.json");
+    rmSync(settings);
+    symlinkSync("settings.json", settings);
+
+    const on = voxkey(["on", "--hooks-only"]);
+    expect(on.status).toBe(0);
+    expect(on.stdout).toContain("No agent hook was confirmed as registered");
+    expect(on.stdout).not.toContain("No agent hook is registered");
+  });
+
   it("does not claim hooks are registered when no agent is installed", () => {
     for (const folder of [".claude", ".codex", ".grok"]) {
       rmSync(path.join(home, folder), { recursive: true });
@@ -124,7 +138,7 @@ describe("voxkey on --hooks-only and voxkey off in a scratch HOME", () => {
 
     const on = voxkey(["on", "--hooks-only"]);
     expect(on.status).toBe(0);
-    expect(on.stdout).toContain("No agent hook is registered");
+    expect(on.stdout).toContain("No agent hook was confirmed as registered");
     expect(on.stdout).not.toContain("Hooks registered");
   });
 

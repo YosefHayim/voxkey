@@ -131,7 +131,7 @@ export const onCommand = Command.make("on", { hooksOnly: hooksOnlyOption }, (arg
       yield* TerminalUI.outro(
         registered
           ? "Hooks registered. Run `voxkey on` without --hooks-only to start dictation."
-          : "No agent hook is registered (see above).",
+          : "No agent hook was confirmed as registered (see above).",
       );
       return;
     }
