@@ -83,7 +83,7 @@ Status words:
 | --- | --- | --- | --- | --- |
 | `voice on` / `stt on`: install the voice feature, prepare models, restart the workers | `voiceCommand.ts`, `sttCommand.ts`, `voiceWorker.ts`, the old installer | `voxkey on` | replaced | Registers the Stop hook for each detected agent, downloads missing models, then restarts the workers. No receipt or feature catalog. |
 | `voice off` / `stt off` | same | `voxkey off` | replaced | Stops every voxkey process and removes only voxkey's hook entries. |
-| `tts on` / `tts off` | `ttsCommand.ts` | `voxkey config set narration-mode auto` / `off` | replaced | `config set` applies at once: the narration worker starts or stops. |
+| `tts on` / `tts off` | `ttsCommand.ts` | `voxkey config set narration-mode auto` / `off` | replaced | `off` applies at once: the reply being read stops and the narration worker exits. `auto` starts the narration worker at once only while dictation runs; with the workers stopped it is saved, and narration starts with them (`voxkey on`, or the next agent reply). |
 | `voice status [--format json]` | `voiceCommand.ts`, `worker_status` | `voxkey status [--json]` | kept | |
 | `stt keep-listening [seconds]` | `sttCommand.ts` | `voxkey config get|set dictation-keep-listening-seconds` | replaced | |
 | `stt lang [en|he]` with aliases (english, hebrew, ivrit, iw, lang=he); reloads the worker | `sttCommand.ts` | `voxkey config set dictation-language he` | replaced | The aliases are decoded by the setting's Schema; the dictation worker restarts when the language changes. |

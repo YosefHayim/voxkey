@@ -15,7 +15,7 @@ Everything except refine runs locally. voxkey is macOS only.
 voxkey is not published to npm. Build it from this repository:
 
 ```bash
-git clone <this repository> voxkey
+git clone https://github.com/YosefHayim/voxkey.git
 cd voxkey
 pnpm install
 pnpm build

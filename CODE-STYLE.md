@@ -113,7 +113,7 @@ Why: fake robustness hides broken contracts and multiplies states nobody tests.
 ### Arrow constants
 [rule:function.arrow-only] · verify: `pnpm style`
 
-Named functions are arrow constants declared before first use.
+Named functions are arrow functions, never function declarations, function expressions, or object methods.
 
 ```ts
 // ✓
@@ -180,7 +180,7 @@ Why: when the name stops covering the body, every reader has to read the body to
 ### Blank lines between functions
 [rule:function.blank-line] · verify: `pnpm style`
 
-Adjacent function declarations are separated by exactly one blank line.
+Adjacent function declarations are separated by a blank line, and Biome collapses any extra ones.
 
 ```ts
 // ✓

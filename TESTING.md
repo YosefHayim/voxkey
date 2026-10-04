@@ -11,7 +11,7 @@ pnpm install && pnpm build && pnpm link --global
 voxkey doctor
 ```
 
-Expect every line to be ✓ except, possibly, the Whisper model and the Supertonic voices (not downloaded yet) and Input Monitoring (a warning).
+Expect ✓ for macOS, Node, the native modules, and the system tools. Before step 1 these are expected too: Accessibility ✗ (not allowed yet), Microphone ! (not asked yet), a ! hook line for each installed agent (not registered yet), and possibly ! for the Whisper model and the Supertonic voices (not downloaded yet) and for Input Monitoring.
 
 ## 1. Permissions
 
@@ -58,7 +58,7 @@ Hebrew: `voxkey config set dictation-language he` (expect "Dictation restarted w
 ## 4. Narration
 
 ```bash
-voxkey speak "# Release\n\nThe voice worker is **ready**.\n\n| Item | State |\n| --- | --- |\n| Voice | Ready |"
+voxkey speak $'# Release\n\nThe voice worker is **ready**.\n\n| Item | State |\n| --- | --- |\n| Voice | Ready |'
 ```
 
 Expect: "Release. The voice worker is ready. Row 1. Item: Voice. State: Ready." in voice F4.

@@ -12,7 +12,7 @@ How voxkey runs on a Mac. Words are defined in `LANGUAGE.md`.
 | pill (`osascript -l JavaScript`) | the dictation worker | until that worker exits | shows `status.json` at the bottom of the screen |
 | `voxkey reply` | an agent's Stop hook | one turn | queues the reply, wakes the workers, prints nothing, exits 0 |
 
-Workers are spawned detached in their own process groups and log to `~/.voxkey/*-worker.log`. A worker holds its kind's lock (`*.lock` created exclusively, plus `*.pid`); `voxkey off` writes `stop`, sends SIGTERM to each group, then SIGKILL. A tap or a new hold sends SIGUSR2 to the narration worker to stop speech at once.
+Workers are spawned detached in their own process groups and log to `~/.voxkey/*-worker.log`. A worker holds its kind's lock (`*.lock` created exclusively, plus `*.pid`); a pid file counts, and its pid is signalled, only while `ps` shows that pid running the worker's (or the pill's) command line. `voxkey off` removes the agent hooks first, then writes `stop`, sends SIGTERM to each group, then SIGKILL. A tap or a new hold sends SIGUSR2 to the narration worker to stop speech at once.
 
 ## Files
 
