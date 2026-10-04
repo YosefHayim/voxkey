@@ -828,13 +828,12 @@ export const holdTransition = (state: HoldState, event: HoldEvent): readonly [Ho
 
 ## Golden path — adding a feature
 
-1. Add a row to `docs/PARITY.md` if the feature replaces behavior of the old voice feature.
-2. Put the pure decision in the capability folder that owns it (`dictation`, `narration`, `refine`, `agentHooks`, …) with a colocated test.
-3. Put the mechanism (native call, process, file) beside it and load native modules lazily.
-4. Add any setting to `src/config/configSchema.ts` with a title and description; add any environment variable to `src/config/environmentVariables.ts`.
-5. Add or extend one command file in `src/cli/`, rendering through `TerminalUI`.
-6. Update README and TESTING.md when the user must check the feature by hand.
-7. Run `pnpm verify`.
+1. Put the pure decision in the capability folder that owns it (`dictation`, `narration`, `refine`, `agentHooks`, …) with a colocated test.
+2. Put the mechanism (native call, process, file) beside it and load native modules lazily.
+3. Add any setting to `src/config/configSchema.ts` with a title and description; add any environment variable to `src/config/environmentVariables.ts`.
+4. Add or extend one command file in `src/cli/`, rendering through `TerminalUI`.
+5. Update README and TESTING.md when the user must check the feature by hand.
+6. Run `pnpm verify`.
 
 ## Exemplars
 

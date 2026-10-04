@@ -15,7 +15,6 @@ Entrypoint for coding agents and maintainers (Claude Code, Codex, Cursor, and ot
 | [`LANGUAGE.md`](LANGUAGE.md) | The words used in code and docs |
 | [`CODE-STYLE.md`](CODE-STYLE.md) | Rule cards; `pnpm style` and `pnpm style:guide .` enforce them |
 | [`TESTING.md`](TESTING.md) | Hand checks that need a mic, a keyboard, and macOS permissions |
-| [`docs/PARITY.md`](docs/PARITY.md) | What voxkey kept, replaced, or dropped from the voice feature it was split from |
 | `src/config/configSchema.ts` | Every setting (README table is checked against it) |
 | `src/config/environmentVariables.ts` | Every `VOXKEY_*` variable |
 
