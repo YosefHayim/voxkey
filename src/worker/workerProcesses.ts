@@ -1,12 +1,13 @@
 /** The two background workers (dictation, narration): pid and lock files, spawning, stopping, and reset. */
 
 import { spawn, spawnSync } from "node:child_process";
-import { closeSync, existsSync, openSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Schema, type Scope } from "effect";
 
 import { removeInboxFiles } from "../narration/inbox.js";
+import { type FileLockError, holdLock, removeFreeLock } from "../state/fileLock.js";
 import {
   makePrivateFolder,
   openPrivateFile,
@@ -128,37 +129,29 @@ export const signalGroup = (pid: number, signal: NodeJS.Signals): void => {
   }
 };
 
-/**
- * Exclusive create of the lock file is the mutex across spawn races; a lock left by a dead owner is
- * reclaimed. False when another live worker of this kind already runs.
- */
-export const claimWorkerLock = (kind: WorkerKind): boolean => {
-  makePrivateFolder(voxkeyHome());
-  const ownerAlive = () => Option.exists(runningPid(pidFile(kind)), (pid) => pid !== process.pid);
-  if (ownerAlive()) {
-    return false;
-  }
-
-  const createLock = () => closeSync(openSync(lockFile(kind), "wx", 0o600));
-  try {
-    createLock();
-  } catch {
-    if (ownerAlive()) {
-      return false;
-    }
-    removeIfPresent(lockFile(kind));
-    createLock();
-  }
-  writePid(pidFile(kind), process.pid);
-  return true;
-};
-
-export const releaseWorkerLock = (kind: WorkerKind): void => {
+const removeOwnPidFile = (kind: WorkerKind): void => {
   if (Option.exists(readPid(pidFile(kind)), (pid) => pid === process.pid)) {
     removeIfPresent(stateFile(pidFile(kind)));
   }
-  removeIfPresent(lockFile(kind));
 };
+
+/**
+ * Hold this kind's worker lock for the rest of the scope and write the pid file; false when another worker of this
+ * kind holds it. The kernel lock ends with its worker, even one killed with SIGKILL, so racing starters never meet a
+ * stale lock to take over, and exactly one of them owns it.
+ */
+export const claimWorkerLock = (kind: WorkerKind): Effect.Effect<boolean, FileLockError, Scope.Scope> =>
+  Effect.gen(function* () {
+    makePrivateFolder(voxkeyHome());
+    if (!(yield* holdLock(lockFile(kind)))) {
+      return false;
+    }
+
+    writePid(pidFile(kind), process.pid);
+    // Added after the lock, so it runs before the lock is dropped: the next owner's pid file is never removed.
+    yield* Effect.addFinalizer(() => Effect.sync(() => removeOwnPidFile(kind)));
+    return true;
+  });
 
 /** The script that is voxkey's CLI: the built main.js, or main.ts when running from source with tsx. */
 const entryScript = (): string => {
@@ -219,15 +212,12 @@ export const stopWorkers: Effect.Effect<void> = Effect.gen(function* () {
   for (const pid of [...running(), ...Option.toArray(runningPid("pill.pid"))]) {
     signalGroup(pid, "SIGKILL");
   }
-  for (const name of [
-    "dictation.pid",
-    "dictation.lock",
-    "narration.pid",
-    "narration.lock",
-    "pill.pid",
-    "stop",
-  ] as const) {
+  for (const name of ["dictation.pid", "narration.pid", "pill.pid", "stop"] as const) {
     removeIfPresent(stateFile(name));
+  }
+  // A lock some worker still holds (say one that started after the pids were read) must stay, or a second could start.
+  for (const kind of ["dictation", "narration"] as const) {
+    removeFreeLock(lockFile(kind));
   }
   removeInboxFiles([".speaking"]);
 });

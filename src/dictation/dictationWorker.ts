@@ -10,7 +10,7 @@ import { readEnvironment } from "../config/environmentVariables.js";
 import { ensureWhisperModel, selectWhisperModel } from "../models/whisperModels.js";
 import { startPill, stopPill } from "../worker/pill.js";
 import { appendDictationLog } from "../worker/workerLog.js";
-import { claimWorkerLock, releaseWorkerLock, startNarrationWorker, stopRequested } from "../worker/workerProcesses.js";
+import { claimWorkerLock, startNarrationWorker, stopRequested } from "../worker/workerProcesses.js";
 import { makeStatusWriter } from "../worker/workerStatus.js";
 import { startDictationQueue } from "./dictationQueue.js";
 import { makeHoldController } from "./holdController.js";
@@ -74,22 +74,24 @@ const runWorker = Effect.gen(function* () {
  * Runs until the stop file appears or the mic fails; a failure is written to status.json for `voxkey on` and
  * `voxkey status` to report, and the next agent turn (or `voxkey on`) starts a fresh worker.
  */
-export const runDictationWorker = Effect.gen(function* () {
-  if (!claimWorkerLock("dictation")) {
-    return;
-  }
+export const runDictationWorker = Effect.scoped(
+  Effect.gen(function* () {
+    if (!(yield* claimWorkerLock("dictation"))) {
+      return;
+    }
 
-  yield* Effect.scoped(runWorker).pipe(
-    Effect.tapError((failure) =>
-      Effect.sync(() => {
-        const message = failure instanceof Error ? failure.message : String(failure);
-        appendDictationLog(`worker failed: ${message}`);
-        makeStatusWriter({ model: "", backend: whisperBackend(), recording: () => false }).write(
-          "unavailable",
-          message,
-        );
-      }),
-    ),
-    Effect.ensuring(Effect.sync(() => releaseWorkerLock("dictation"))),
-  );
-});
+    // Its own inner scope: the mic and the pill are released before the outer scope lets go of the lock.
+    yield* Effect.scoped(runWorker).pipe(
+      Effect.tapError((failure) =>
+        Effect.sync(() => {
+          const message = failure instanceof Error ? failure.message : String(failure);
+          appendDictationLog(`worker failed: ${message}`);
+          makeStatusWriter({ model: "", backend: whisperBackend(), recording: () => false }).write(
+            "unavailable",
+            message,
+          );
+        }),
+      ),
+    );
+  }),
+);

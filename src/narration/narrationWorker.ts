@@ -8,7 +8,7 @@ import { Effect, Option } from "effect";
 import { readConfigOrDefaults } from "../config/configFile.js";
 import { ensureSupertonicModels } from "../models/supertonicModels.js";
 import { appendNarrationLog } from "../worker/workerLog.js";
-import { claimWorkerLock, releaseWorkerLock, stopRequested } from "../worker/workerProcesses.js";
+import { claimWorkerLock, stopRequested } from "../worker/workerProcesses.js";
 import { dictationOwnsAudio } from "../worker/workerStatus.js";
 import { claimNextReply, completeReply, failReply, isNarrationMuted, removeInboxFiles } from "./inbox.js";
 import { makeSpeechPlayer, speakMarkdown } from "./speechPlayer.js";
@@ -69,7 +69,7 @@ export const runNarrationWorker = Effect.gen(function* () {
   // Installed first: the default action of SIGUSR2 would end the process while the models load.
   let stopSpeech = () => {};
   process.on(STOP_SPEECH_SIGNAL, () => stopSpeech());
-  if (!claimWorkerLock("narration")) {
+  if (!(yield* claimWorkerLock("narration"))) {
     return;
   }
 
@@ -90,8 +90,5 @@ export const runNarrationWorker = Effect.gen(function* () {
     stopSpeech = player.stop;
     appendNarrationLog(`ready pid=${String(process.pid)}`);
     yield* speakUntilStopped(engine, player);
-  }).pipe(
-    Effect.tapError((failure) => Effect.sync(() => appendNarrationLog(`worker failed: ${String(failure)}`))),
-    Effect.ensuring(Effect.sync(() => releaseWorkerLock("narration"))),
-  );
-});
+  }).pipe(Effect.tapError((failure) => Effect.sync(() => appendNarrationLog(`worker failed: ${String(failure)}`))));
+}).pipe(Effect.scoped);

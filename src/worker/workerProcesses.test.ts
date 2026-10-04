@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,7 +8,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { isWorkerRunning, stopWorkers } from "./workerProcesses.js";
 
-const scratchRoot = fileURLToPath(new URL("../../.scratch/", import.meta.url));
+const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
+const scratchRoot = path.join(repositoryRoot, ".scratch");
+const workerProcessesModule = fileURLToPath(new URL("./workerProcesses.ts", import.meta.url));
 
 let home = "";
 const started: Array<ChildProcess> = [];
@@ -50,8 +52,8 @@ const startSleeper = async (trailing: ReadonlyArray<string>): Promise<number> =>
 
 const writePidFile = (name: string, pid: number) => writeFileSync(path.join(home, name), String(pid));
 
-const eventually = async (check: () => boolean): Promise<boolean> => {
-  const deadline = Date.now() + 3_000;
+const eventually = async (check: () => boolean, timeoutMs = 3_000): Promise<boolean> => {
+  const deadline = Date.now() + timeoutMs;
   while (!check() && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -83,6 +85,78 @@ describe("worker pid files", () => {
 
     expect(await eventually(() => !isAlive(narration))).toBe(true);
     expect(isAlive(stranger)).toBe(true);
+    expect(existsSync(path.join(home, "dictation.pid"))).toBe(false);
+  });
+});
+
+// A starter: once the `go` file exists it claims the dictation lock, prints "owner" or "busy", and an owner keeps the
+// lock for holdMs, so every racer tries while the winner still holds it. Its command line ends like a real dictation
+// worker's, so `ps` takes each starter for one.
+const STARTER = `
+const [modulePath, go, holdMs] = process.argv.slice(1);
+const { existsSync } = await import("node:fs");
+const { Effect } = await import("effect");
+const { claimWorkerLock } = await import(modulePath);
+process.stdout.write("ready\\n");
+while (!existsSync(go)) await new Promise((resolve) => setTimeout(resolve, 1));
+await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
+  const owns = yield* claimWorkerLock("dictation");
+  process.stdout.write(owns ? "owner\\n" : "busy\\n");
+  if (owns) yield* Effect.sleep(Number(holdMs));
+})));
+`;
+
+const startStarter = (request: { readonly go: string; readonly holdMs: number }) => {
+  const child = spawn(
+    process.execPath,
+    [
+      ...["--import", "tsx", "--input-type=module", "-e", STARTER],
+      ...[workerProcessesModule, request.go, String(request.holdMs), "worker", "dictation"],
+    ],
+    { cwd: repositoryRoot, env: { ...process.env, VOXKEY_HOME: home }, stdio: ["ignore", "pipe", "inherit"] },
+  );
+  started.push(child);
+  let output = "";
+  child.stdout?.on("data", (chunk: Buffer) => {
+    output += chunk.toString();
+  });
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  return { pid: child.pid || 0, output: () => output, exited };
+};
+
+describe("worker lock", () => {
+  it("lets exactly one of eight racing starters own the lock, even over a lock left by a SIGKILLed owner", async () => {
+    const go = path.join(home, "go");
+    writeFileSync(go, "");
+    const crashed = startStarter({ go, holdMs: 60_000 });
+    expect(await eventually(() => crashed.output().includes("owner"), 20_000)).toBe(true);
+    process.kill(crashed.pid, "SIGKILL");
+    await crashed.exited;
+    expect(existsSync(path.join(home, "dictation.lock"))).toBe(true);
+    expect(readFileSync(path.join(home, "dictation.pid"), "utf8")).toBe(String(crashed.pid));
+    rmSync(go);
+
+    const racers = Array.from({ length: 8 }, () => startStarter({ go, holdMs: 2_000 }));
+    expect(await eventually(() => racers.every((racer) => racer.output().includes("ready")), 20_000)).toBe(true);
+    writeFileSync(go, "");
+    expect(await eventually(() => racers.some((racer) => racer.output().includes("owner")), 20_000)).toBe(true);
+    const owner = racers.find((racer) => racer.output().includes("owner"));
+    expect(readFileSync(path.join(home, "dictation.pid"), "utf8")).toBe(String(owner?.pid));
+
+    for (const racer of racers) {
+      await racer.exited;
+    }
+    expect(racers.map((racer) => racer.output().replace("ready\n", "")).sort()).toEqual([
+      "busy\n",
+      "busy\n",
+      "busy\n",
+      "busy\n",
+      "busy\n",
+      "busy\n",
+      "busy\n",
+      "owner\n",
+    ]);
+    expect(existsSync(path.join(home, "dictation.lock"))).toBe(false);
     expect(existsSync(path.join(home, "dictation.pid"))).toBe(false);
   });
 });
