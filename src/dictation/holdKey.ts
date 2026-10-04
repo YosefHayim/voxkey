@@ -88,6 +88,36 @@ export const debounceShift = (
   return [{ isDown: debounce.isDown, downStreak, upStreak }, "none"];
 };
 
+type ShiftTracker = { readonly debounce: ShiftDebounce; readonly heldAtShiftDown: bigint };
+
+export const initialShiftTracker: ShiftTracker = { debounce: initialShiftDebounce, heldAtShiftDown: 0n };
+
+/**
+ * One keyboard sample → hold events. The keys held when Shift first reads down are the baseline, so a key pressed
+ * while the down edge is still debouncing counts as typing; once Shift reads up no key counts, so typing right
+ * after a release never cancels the clip. A key released during the hold counts again if pressed again.
+ */
+export const sampleShift = (
+  tracker: ShiftTracker,
+  sample: { readonly shift: "down" | "up"; readonly otherKeys: () => bigint },
+): readonly [ShiftTracker, ReadonlyArray<HoldEvent>] => {
+  const [debounce, edge] = debounceShift(tracker.debounce, sample.shift);
+  if (sample.shift === "up") {
+    return [{ debounce, heldAtShiftDown: tracker.heldAtShiftDown }, edge === "shiftUp" ? ["shiftUp"] : []];
+  }
+
+  const held = sample.otherKeys();
+  const pressStarts = !tracker.debounce.isDown && tracker.debounce.downStreak === 0;
+  const baseline = pressStarts ? held : tracker.heldAtShiftDown;
+  const typed = newlyPressed(baseline, held);
+  const next = { debounce, heldAtShiftDown: baseline & held };
+  if (edge === "shiftDown") {
+    return [next, typed ? ["shiftDown", "otherDown"] : ["shiftDown"]];
+  }
+
+  return [next, debounce.isDown && typed ? ["otherDown"] : []];
+};
+
 export type TapAction = "stopNarration" | "refineClipboard" | "toggleMute";
 
 /** A double tap stops speech first; otherwise it refines the clipboard (clipboard refine) or toggles the mute. */

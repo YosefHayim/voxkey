@@ -46,6 +46,10 @@ export const unicodeChunks = (text: string): ReadonlyArray<string> => {
   return current === "" ? chunks : [...chunks, current];
 };
 
+/** Every UTF-16 code unit of a chunk, so an emoji or other character outside the BMP keeps both surrogates. */
+export const utf16Units = (chunk: string): Uint16Array =>
+  Uint16Array.from({ length: chunk.length }, (_unused, index) => chunk.charCodeAt(index));
+
 /** A chunk that starts with a newline is silently dropped by macOS, so it is led by a zero-width space. */
 export const postableChunk = (chunk: string): string => (/^[\r\n]/u.test(chunk) ? `​${chunk}` : chunk);
 
@@ -91,7 +95,7 @@ export const loadKeyboard = Effect.gen(function* () {
   // Flags are cleared, so a Shift still held by the hand cannot capitalize the typed text.
   const postUnicode = (chunk: string) => {
     const event = createKeyEvent(source, 0, true);
-    const units = Uint16Array.from(chunk, (character) => character.charCodeAt(0));
+    const units = utf16Units(chunk);
     setUnicode(event, units.length, units);
     setFlags(event, 0n);
     postEvent(HID_EVENT_TAP, event);

@@ -3,7 +3,7 @@
  * only flips a recording flag and the first word is never clipped by device start-up.
  */
 
-import { Effect, Schema } from "effect";
+import { Effect, Fiber, Schema } from "effect";
 
 import { SAMPLE_RATE, samplesFromPcm } from "./speechDetection.js";
 
@@ -24,14 +24,22 @@ const FRAME_SAMPLES = 512;
 const BUFFERED_FRAMES = 100;
 const DEFAULT_DEVICE = -1;
 
-/** The audio of the current hold; frames arriving while not recording are dropped. */
+/**
+ * The audio of the current hold; frames arriving while not recording are dropped. Shift down begins a clip that
+ * may still be a capital letter; `confirm` marks it a hold, which owns the audio until it ends or is cancelled.
+ * Every begin starts a new clip number, so work started for an earlier clip can tell it is late.
+ */
 export const makeClipBuffer = () => {
   let frames: Array<Int16Array> = [];
   let recording = false;
+  let confirmed = false;
+  let clipNumber = 0;
 
   const begin = () => {
     frames = [];
     recording = true;
+    confirmed = false;
+    clipNumber += 1;
   };
 
   const append = (frame: Int16Array) => {
@@ -52,6 +60,7 @@ export const makeClipBuffer = () => {
 
   const end = (): Float32Array => {
     recording = false;
+    confirmed = false;
     const captured = joined(frames);
     frames = [];
     return captured;
@@ -59,6 +68,7 @@ export const makeClipBuffer = () => {
 
   const cancel = () => {
     recording = false;
+    confirmed = false;
     frames = [];
   };
 
@@ -72,14 +82,22 @@ export const makeClipBuffer = () => {
     end,
     cancel,
     tail,
+    confirm: () => {
+      confirmed = recording;
+    },
     isRecording: () => recording,
+    isConfirmedHold: () => confirmed,
+    clipNumber: () => clipNumber,
     sampleCount: () => frames.length * FRAME_SAMPLES,
   };
 };
 
 export type ClipBuffer = ReturnType<typeof makeClipBuffer>;
 
-/** Open the default input and feed every frame to `clip` until the scope closes. */
+/**
+ * Open the default input and feed every frame to `clip` until the scope closes. `failure` fails when a read
+ * fails, so the worker ends (and is started fresh) instead of recording silence from then on.
+ */
 export const openMicrophone = (clip: ClipBuffer) =>
   Effect.gen(function* () {
     const { PvRecorder } = yield* Effect.tryPromise({
@@ -102,8 +120,8 @@ export const openMicrophone = (clip: ClipBuffer) =>
         }),
     );
     const readFrame = Effect.tryPromise({ try: () => recorder.read(), catch: microphoneError });
-    yield* Effect.forkScoped(
+    const reader = yield* Effect.forkScoped(
       Effect.forever(Effect.flatMap(readFrame, (frame) => Effect.sync(() => clip.append(frame)))),
     );
-    return { device: recorder.getSelectedDevice() };
+    return { device: recorder.getSelectedDevice(), failure: Fiber.join(reader) };
   });

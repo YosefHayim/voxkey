@@ -25,8 +25,14 @@ describe("formatDictation", () => {
       ["type script", "TypeScript"],
       ["type", "kind"],
     ]);
-    expect(formatDictation("I like Type Script.", terms)).toBe("I like TypeScript ");
+    expect(formatDictation("I like Type Script.", terms)).toBe("I like TypeScript. ");
     expect(formatDictation("what type is it", terms)).toBe("What kind is it ");
+  });
+
+  it("keeps the punctuation Whisper put after a replaced word, so the next sentence still starts with a capital", () => {
+    const names = new Map([["Joseph", "Yosef"]]);
+    expect(formatDictation("my name is Joseph. thanks", names)).toBe("My name is Yosef. Thanks ");
+    expect(formatDictation("Joseph, hi", names)).toBe("Yosef, hi ");
   });
 
   it("leaves Hebrew words untouched", () => {

@@ -28,7 +28,7 @@ const waitForStop: Effect.Effect<void> = Effect.repeat(Effect.void, {
 const runWorker = Effect.gen(function* () {
   const config = yield* readConfigOrDefaults;
   const model = selectWhisperModel({ environment: readEnvironment(), config });
-  const loading = makeStatusWriter({ model: model.file, backend: whisperBackend() });
+  const loading = makeStatusWriter({ model: model.file, backend: whisperBackend(), recording: () => false });
   loading.write("starting", `Loading ${model.label}`);
   const modelPath = yield* ensureWhisperModel({
     model,
@@ -38,9 +38,13 @@ const runWorker = Effect.gen(function* () {
   const loadStarted = performance.now();
   const transcriber = yield* Effect.acquireRelease(loadTranscriber(modelPath), (loaded) => loaded.release);
   const loadMs = (performance.now() - loadStarted).toFixed(0);
-  const status = makeStatusWriter({ model: transcriber.modelName, backend: whisperBackend() });
-  const keyboard = yield* loadKeyboard;
   const clip = makeClipBuffer();
+  const status = makeStatusWriter({
+    model: transcriber.modelName,
+    backend: whisperBackend(),
+    recording: clip.isConfirmedHold,
+  });
+  const keyboard = yield* loadKeyboard;
   const microphone = yield* openMicrophone(clip);
   appendDictationLog(
     `worker pid=${String(process.pid)} model=${model.file} load_ms=${loadMs} mic=${microphone.device}`,
@@ -63,10 +67,13 @@ const runWorker = Effect.gen(function* () {
   }
   const controller = makeHoldController({ keyboard, clip, caption, status, queue });
   yield* Effect.forkScoped(Effect.repeat(controller.poll, Schedule.spaced(Duration.millis(SHIFT_POLL_MS))));
-  yield* waitForStop;
+  yield* Effect.raceFirst(waitForStop, microphone.failure);
 });
 
-/** Runs until the stop file appears; a start-up failure is written to status.json for `voxkey on` to report. */
+/**
+ * Runs until the stop file appears or the mic fails; a failure is written to status.json for `voxkey on` and
+ * `voxkey status` to report, and the next agent turn (or `voxkey on`) starts a fresh worker.
+ */
 export const runDictationWorker = Effect.gen(function* () {
   if (!claimWorkerLock("dictation")) {
     return;
@@ -77,7 +84,10 @@ export const runDictationWorker = Effect.gen(function* () {
       Effect.sync(() => {
         const message = failure instanceof Error ? failure.message : String(failure);
         appendDictationLog(`worker failed: ${message}`);
-        makeStatusWriter({ model: "", backend: whisperBackend() }).write("unavailable", message);
+        makeStatusWriter({ model: "", backend: whisperBackend(), recording: () => false }).write(
+          "unavailable",
+          message,
+        );
       }),
     ),
     Effect.ensuring(Effect.sync(() => releaseWorkerLock("dictation"))),

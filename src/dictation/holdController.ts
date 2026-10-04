@@ -15,15 +15,14 @@ import { readClipboard, writeClipboard } from "./caret.js";
 import type { DictationQueue } from "./dictationQueue.js";
 import {
   classifyTap,
-  debounceShift,
   doubleTapAction,
   HOLD_THRESHOLD_MS,
   type HoldAction,
   type HoldEvent,
   type HoldState,
   holdTransition,
-  initialShiftDebounce,
-  newlyPressed,
+  initialShiftTracker,
+  sampleShift,
 } from "./holdKey.js";
 import type { Keyboard } from "./keyboard.js";
 import type { LiveCaption } from "./livePreview.js";
@@ -71,11 +70,10 @@ export const makeHoldController = (request: {
   readonly queue: DictationQueue;
 }) => {
   const { keyboard, clip, caption, status, queue } = request;
-  let debounce = initialShiftDebounce;
+  let tracker = initialShiftTracker;
   let state: HoldState = "idle";
   let deadline: number | undefined;
   let generation = 0;
-  let heldAtShiftDown = 0n;
   let lastTapAt: number | undefined;
   let announcedListening = false;
   let finishing: number | undefined;
@@ -152,6 +150,7 @@ export const makeHoldController = (request: {
       clip.begin();
       caption.clear();
     }
+    clip.confirm();
     status.write("listening", "Recording");
     appendDictationLog("hold start");
     announcedListening = true;
@@ -200,23 +199,14 @@ export const makeHoldController = (request: {
       return perform(action);
     });
 
+  // Shift plus another key is typing or a shortcut, never a hold.
   const sampleEvents = (): ReadonlyArray<HoldEvent> => {
-    const [nextDebounce, edge] = debounceShift(debounce, keyboard.shiftDown() ? "down" : "up");
-    debounce = nextDebounce;
-    if (edge === "shiftDown") {
-      heldAtShiftDown = keyboard.otherKeysDown();
-      return ["shiftDown"];
-    }
-
-    if (edge === "shiftUp" || !debounce.isDown) {
-      return edge === "shiftUp" ? ["shiftUp"] : [];
-    }
-
-    // Shift plus another key is typing or a shortcut; a key released during the hold counts again if pressed again.
-    const held = keyboard.otherKeysDown();
-    const typed = newlyPressed(heldAtShiftDown, held);
-    heldAtShiftDown &= held;
-    return typed ? ["otherDown"] : [];
+    const [next, events] = sampleShift(tracker, {
+      shift: keyboard.shiftDown() ? "down" : "up",
+      otherKeys: keyboard.otherKeysDown,
+    });
+    tracker = next;
+    return events;
   };
 
   const timerEvents = (): ReadonlyArray<HoldEvent> =>

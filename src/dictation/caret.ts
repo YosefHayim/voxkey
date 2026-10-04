@@ -68,8 +68,13 @@ const pasteText = (keyboard: Keyboard, text: string) =>
 
     yield* commandVWithSystemEvents.pipe(Effect.orElse(() => Effect.sync(() => keyboard.pressCommandV())));
     if (previous._tag === "Right") {
+      // Restore only while the clipboard still holds the pasted text: anything copied meanwhile stays.
       yield* Effect.forkDaemon(
-        Effect.zipRight(Effect.sleep("400 millis"), Effect.ignore(writeClipboard(previous.right))),
+        Effect.sleep("400 millis").pipe(
+          Effect.zipRight(readClipboard),
+          Effect.flatMap((current) => (current === text ? writeClipboard(previous.right) : Effect.void)),
+          Effect.ignore,
+        ),
       );
     }
   });

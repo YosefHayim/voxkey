@@ -57,6 +57,8 @@ export const promptBoost = (replacements: ReadonlyMap<string, string>): string =
 
 const canonicalWord = (word: string): string => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").toLowerCase();
 
+const trailingPunctuation = (word: string): string => /[^\p{L}\p{N}]+$/u.exec(word)?.[0] || "";
+
 type Phrase = { readonly words: ReadonlyArray<string>; readonly written: string };
 
 // Replacement phrases in canonical words, longest first so the longest match wins.
@@ -167,7 +169,9 @@ export const formatDictation = (transcript: string, replacements: ReadonlyMap<st
       formatter.pushCommand(command[1]);
       index += command[0].length;
     } else if (replacement !== undefined) {
-      formatter.pushWords(replacement.written);
+      // The heard words' closing punctuation stays: "my name is Joseph." types "My name is Yosef."
+      const lastHeard = words[index + replacement.words.length - 1] || "";
+      formatter.pushWords(replacement.written + trailingPunctuation(lastHeard));
       index += replacement.words.length;
     } else {
       formatter.pushWords(words.slice(index, index + 1).join(""));

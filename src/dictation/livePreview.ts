@@ -53,12 +53,14 @@ const captionOnce = (request: {
     }
 
     const config = yield* readConfigOrDefaults;
+    const clipNumber = request.clip.clipNumber();
     const heard = yield* request.transcriber.caption({
       samples: request.clip.tail(CAPTION_TAIL_SECONDS),
       language: config.dictationLanguage,
     });
     const text = cleanTranscript(heard._tag === "Some" ? heard.value : "");
-    if (text !== "" && request.clip.isRecording()) {
+    // A pass that finishes after its hold ended and a new one began holds the old hold's words: drop it.
+    if (text !== "" && request.clip.isRecording() && request.clip.clipNumber() === clipNumber) {
       request.caption.offer(text);
       request.status.writePreview(text);
     }

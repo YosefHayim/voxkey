@@ -34,7 +34,8 @@ const isDictationRefine = (config: Config) => config.refineMode === "dictation" 
 
 /**
  * The refined prompt, or the dictated text when the phrase is short or the model fails or is slower than
- * REFINE_WAIT; a slow refine keeps running in the background so a picker choice is still saved.
+ * REFINE_WAIT, and which of the two it is; a slow refine keeps running in the background so a picker choice
+ * is still saved.
  */
 const refinedOrDictated = (request: {
   readonly pipeline: Pipeline;
@@ -45,7 +46,7 @@ const refinedOrDictated = (request: {
   Effect.gen(function* () {
     if (isShortPhrase(request.dictated)) {
       appendDictationLog(`refine skipped gen=${String(request.generation)}: short phrase`);
-      return request.dictated;
+      return { text: request.dictated, refined: false };
     }
 
     const model = request.config.refineModel || "default model";
@@ -68,12 +69,12 @@ const refinedOrDictated = (request: {
       appendDictationLog(
         `refine gen=${String(request.generation)} refine_ms=${elapsed} refined=${JSON.stringify(refined.right)}`,
       );
-      return refined.right;
+      return { text: refined.right, refined: true };
     }
 
     const why = refined._tag === "Left" ? refined.left.message : "empty reply";
     appendDictationLog(`refine kept dictation gen=${String(request.generation)} after ${elapsed} ms: ${why}`);
-    return request.dictated;
+    return { text: request.dictated, refined: false };
   });
 
 const typeDictation = (request: { readonly pipeline: Pipeline; readonly config: Config; readonly text: string }) =>
@@ -87,7 +88,8 @@ const typeDictation = (request: { readonly pipeline: Pipeline; readonly config: 
     return request.config.refinePressEnter ? `${formatted} [Enter]` : formatted;
   });
 
-// Refined text goes where refineSendTo says; a failed cmux delivery falls back to the caret.
+// A refined prompt goes where refineSendTo says; dictated text (short, skipped, failed, or slow refine) is typed at
+// the caret, and so is a refined prompt whose cmux delivery failed.
 const deliver = (request: {
   readonly pipeline: Pipeline;
   readonly config: Config;
@@ -126,11 +128,10 @@ const processJob = (pipeline: Pipeline, job: DictationJob) =>
       return;
     }
 
-    const refined = isDictationRefine(config);
-    const text = refined
+    const prompt = isDictationRefine(config)
       ? yield* refinedOrDictated({ pipeline, config, dictated, generation: job.generation })
-      : dictated;
-    const delivered = yield* deliver({ pipeline, config, text, refined });
+      : { text: dictated, refined: false };
+    const delivered = yield* deliver({ pipeline, config, text: prompt.text, refined: prompt.refined });
     appendDictationLog(
       `delivered gen=${String(job.generation)} total_ms=${(performance.now() - started).toFixed(1)} text=${JSON.stringify(delivered)}`,
     );

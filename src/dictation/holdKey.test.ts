@@ -9,7 +9,9 @@ import {
   type HoldState,
   holdTransition,
   initialShiftDebounce,
+  initialShiftTracker,
   newlyPressed,
+  sampleShift,
 } from "./holdKey.js";
 
 const replay = (events: ReadonlyArray<HoldEvent>) =>
@@ -72,24 +74,92 @@ describe("newlyPressed", () => {
 });
 
 describe("debounceShift", () => {
+  // [sample index, edge] for every edge, so the exact debounce lengths are locked down.
   const run = (samples: ReadonlyArray<boolean>) => {
     let debounce = initialShiftDebounce;
-    const edges: Array<string> = [];
-    for (const sample of samples) {
+    const edges: Array<readonly [number, string]> = [];
+    for (const [index, sample] of samples.entries()) {
       const [next, edge] = debounceShift(debounce, sample ? "down" : "up");
       debounce = next;
-      edges.push(edge);
+      if (edge !== "none") {
+        edges.push([index, edge]);
+      }
     }
-    return edges.filter((edge) => edge !== "none");
+    return edges;
   };
 
-  it("reports Shift down after two samples and up after four", () => {
-    expect(run([true, true, true, false, false, false, false])).toEqual(["shiftDown", "shiftUp"]);
+  it("reports Shift down on the second down sample and up on the fourth up sample", () => {
+    expect(run([true, true, true, false, false, false, false])).toEqual([
+      [1, "shiftDown"],
+      [6, "shiftUp"],
+    ]);
   });
 
   it("ignores a one-sample blip in either direction", () => {
     expect(run([true, false, false, false, false])).toEqual([]);
-    expect(run([true, true, false, true, true, false, false, false, false])).toEqual(["shiftDown", "shiftUp"]);
+    expect(run([true, true, false, true, true, false, false, false, false])).toEqual([
+      [1, "shiftDown"],
+      [8, "shiftUp"],
+    ]);
+  });
+});
+
+describe("sampleShift", () => {
+  const letter = 1n << 0x0en;
+  const stuckKey = 1n;
+
+  // [sample index, event] for every event the samples produce.
+  const run = (samples: ReadonlyArray<readonly ["down" | "up", bigint]>) => {
+    let tracker = initialShiftTracker;
+    const events: Array<readonly [number, string]> = [];
+    for (const [index, [shift, keys]] of samples.entries()) {
+      const [next, produced] = sampleShift(tracker, { shift, otherKeys: () => keys });
+      tracker = next;
+      events.push(...produced.map((event) => [index, event] as const));
+    }
+    return events;
+  };
+
+  it("counts a key pressed while Shift is still debouncing down, so a fast capital letter is never a hold", () => {
+    expect(
+      run([
+        ["down", 0n],
+        ["down", letter],
+      ]),
+    ).toEqual([
+      [1, "shiftDown"],
+      [1, "otherDown"],
+    ]);
+  });
+
+  it("ignores a key already held when Shift first reads down, and counts one pressed during the hold", () => {
+    expect(
+      run([
+        ["down", stuckKey],
+        ["down", stuckKey],
+        ["down", stuckKey],
+        ["down", stuckKey | letter],
+      ]),
+    ).toEqual([
+      [1, "shiftDown"],
+      [3, "otherDown"],
+    ]);
+  });
+
+  it("never counts typing that starts right after Shift is released, while the up edge debounces", () => {
+    expect(
+      run([
+        ["down", 0n],
+        ["down", 0n],
+        ["up", 0n],
+        ["up", letter],
+        ["up", letter],
+        ["up", letter],
+      ]),
+    ).toEqual([
+      [1, "shiftDown"],
+      [5, "shiftUp"],
+    ]);
   });
 });
 

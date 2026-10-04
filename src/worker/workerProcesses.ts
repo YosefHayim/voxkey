@@ -257,7 +257,14 @@ export const startWorkers: Effect.Effect<"started" | "already running", WorkerSt
   }
 
   removeIfPresent(stateFile("stop"));
-  writeWorkerStatus({ stage: "starting", detail: "Loading the dictation model", preview: "", model: "", backend: "" });
+  writeWorkerStatus({
+    stage: "starting",
+    detail: "Loading the dictation model",
+    preview: "",
+    recording: false,
+    model: "",
+    backend: "",
+  });
   spawnWorker("dictation");
   const spawnedAt = Date.now();
   // Ready once the worker leaves "starting"; failed once it is gone after having had time to start.
