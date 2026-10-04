@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +18,7 @@ const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
 const mainScript = path.join(repositoryRoot, "src", "cli", "main.ts");
 
 let home = "";
+let psLog = "";
 
 const claudeSettings =
   '{\n  // keep this comment\n  "model": "opus",\n  "hooks": {\n    "Stop": [{"hooks": [{"type": "command", "command": "notify"}]}]\n  }\n}\n';
@@ -23,6 +33,11 @@ beforeEach(() => {
   mkdirSync(path.join(home, ".grok"));
   writeFileSync(path.join(home, ".claude", "settings.json"), claudeSettings);
   writeFileSync(path.join(home, ".codex", "hooks.json"), codexHooks);
+  // `off` sweeps voxkey workers by command line across the whole Mac; this ps lists none, so the test never
+  // signals a process it did not start (a voxkey the developer is running keeps running).
+  mkdirSync(path.join(home, "bin"));
+  psLog = path.join(home, "ps.log");
+  writeFileSync(path.join(home, "bin", "ps"), `#!/bin/sh\necho "$@" >> '${psLog}'\n`, { mode: 0o755 });
 });
 
 afterEach(() => {
@@ -33,7 +48,12 @@ const voxkey = (args: ReadonlyArray<string>) =>
   spawnSync(process.execPath, ["--import", "tsx", mainScript, ...args], {
     cwd: repositoryRoot,
     encoding: "utf8",
-    env: { ...process.env, HOME: home, VOXKEY_HOME: path.join(home, ".voxkey") },
+    env: {
+      ...process.env,
+      HOME: home,
+      VOXKEY_HOME: path.join(home, ".voxkey"),
+      PATH: `${path.join(home, "bin")}:${process.env.PATH || ""}`,
+    },
   });
 
 const read = (relative: string) => readFileSync(path.join(home, relative), "utf8");
@@ -57,6 +77,7 @@ describe("voxkey on --hooks-only and voxkey off in a scratch HOME", () => {
 
     const off = voxkey(["off"]);
     expect(off.status).toBe(0);
+    expect(readFileSync(psLog, "utf8")).toContain("-ax");
     expect(read(".claude/settings.json")).toBe(claudeSettings);
     expect(read(".codex/hooks.json")).toBe(codexHooks);
     expect(existsSync(path.join(home, ".grok", "hooks", "voxkey.json"))).toBe(false);
@@ -80,6 +101,29 @@ describe("voxkey on --hooks-only and voxkey off in a scratch HOME", () => {
     expect(voxkey(["on", "--hooks-only"]).status).toBe(0);
     expect(voxkey(["off"]).status).toBe(0);
     expect(read(".codex/hooks.json")).toBe("{}\n");
+  });
+
+  it("leaves a settings file it cannot read exactly as it is, instead of replacing it", () => {
+    const settings = path.join(home, ".claude", "settings.json");
+    chmodSync(settings, 0o000);
+
+    const on = voxkey(["on", "--hooks-only"]);
+    chmodSync(settings, 0o600);
+    expect(on.status).toBe(0);
+    expect(on.stdout).toContain("could not be read");
+    expect(read(".claude/settings.json")).toBe(claudeSettings);
+    expect(readdirSync(path.join(home, ".voxkey", "backups"))).toEqual([expect.stringMatching(/^codex-/u)]);
+  });
+
+  it("does not claim hooks are registered when no agent is installed", () => {
+    for (const folder of [".claude", ".codex", ".grok"]) {
+      rmSync(path.join(home, folder), { recursive: true });
+    }
+
+    const on = voxkey(["on", "--hooks-only"]);
+    expect(on.status).toBe(0);
+    expect(on.stdout).toContain("No agent hook is registered");
+    expect(on.stdout).not.toContain("Hooks registered");
   });
 
   it("skips agents that are not installed and leaves a broken settings file alone", () => {

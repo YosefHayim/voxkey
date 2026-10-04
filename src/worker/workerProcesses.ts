@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Effect, Option, Schema } from "effect";
 
 import { removeInboxFiles } from "../narration/inbox.js";
-import { readTextIfPresent, removeIfPresent, touchFile } from "../state/stateFiles.js";
+import { readTextIfReadable, removeIfPresent, touchFile } from "../state/stateFiles.js";
 import { stateFile, voxkeyHome } from "../state/statePaths.js";
 import { readWorkerStatus, writeWorkerStatus } from "./workerStatus.js";
 
@@ -36,7 +36,7 @@ const logFile = (kind: WorkerKind) =>
 
 export const readPid = (name: PidFileName): Option.Option<number> =>
   Option.filter(
-    Option.flatMap(readTextIfPresent(stateFile(name)), (text) =>
+    Option.flatMap(readTextIfReadable(stateFile(name)), (text) =>
       Schema.decodeUnknownOption(Schema.NumberFromString)(text.trim()),
     ),
     (pid) => Number.isInteger(pid) && pid > 1,
@@ -151,7 +151,7 @@ export const spawnWorker = (kind: WorkerKind): void => {
 export const stopRequested = (): boolean => existsSync(stateFile("stop"));
 
 const lastLogLines = (kind: WorkerKind): string =>
-  Option.getOrElse(readTextIfPresent(logFile(kind)), () => "")
+  Option.getOrElse(readTextIfReadable(logFile(kind)), () => "")
     .trimEnd()
     .split("\n")
     .slice(-6)

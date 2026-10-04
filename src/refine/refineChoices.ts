@@ -4,7 +4,7 @@
  */
 
 import { Option, Schema } from "effect";
-import { readJsonFile, readTextIfPresent, writeFileAtomically, writeJsonAtomically } from "../state/stateFiles.js";
+import { readJsonFile, readTextIfReadable, writeFileAtomically, writeJsonAtomically } from "../state/stateFiles.js";
 import { stateFile } from "../state/statePaths.js";
 
 export const DEFAULT_REFINE_MODEL = "gpt-5.3-codex-spark";
@@ -25,11 +25,11 @@ export const readSavedChoice = (): Option.Option<SavedChoice> =>
   readJsonFile({ path: stateFile("refine-choice.json"), schema: savedChoiceSchema });
 
 export const codexLastGoodModel = (): string =>
-  Option.getOrElse(readTextIfPresent(stateFile("refine-codex-last-good.txt")), () => "").trim();
+  Option.getOrElse(readTextIfReadable(stateFile("refine-codex-last-good.txt")), () => "").trim();
 
 export const codexFailedModels = (): ReadonlySet<string> =>
   new Set(
-    Option.getOrElse(readTextIfPresent(stateFile("refine-codex-failed.txt")), () => "")
+    Option.getOrElse(readTextIfReadable(stateFile("refine-codex-failed.txt")), () => "")
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line !== ""),

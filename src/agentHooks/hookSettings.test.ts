@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+
 import { Either } from "effect";
 import { parse } from "jsonc-parser";
 import { describe, expect, it } from "vitest";
@@ -41,10 +43,29 @@ const claudeSettings = `{
 
 describe("replyHookCommand", () => {
   it("quotes paths and ends with the agent, which is how voxkey finds its own entry", () => {
-    expect(command).toBe('"/usr/local/bin/node" "/Users/me/Code/voxkey/dist/src/cli/main.js" reply --agent codex');
+    expect(command).toBe("'/usr/local/bin/node' '/Users/me/Code/voxkey/dist/src/cli/main.js' reply --agent codex");
     expect(isReplyHookCommand(command, "codex")).toBe(true);
     expect(isReplyHookCommand(command, "grok")).toBe(false);
     expect(isReplyHookCommand("notify-send done", "codex")).toBe(false);
+  });
+
+  it("passes paths to the shell literally, even with quotes, spaces, and command substitution", () => {
+    const script = "/Users/o'neil/My Code/$(echo injected)/voxkey/src/cli/main.ts";
+    const hook = replyHookCommand({
+      nodePath: "/bin/echo",
+      scriptArguments: ["--import", "tsx", script],
+      agent: "grok",
+    });
+    const shell = spawnSync("/bin/sh", ["-c", hook], { encoding: "utf8" });
+
+    expect(shell.stdout).toBe(`--import tsx ${script} reply --agent grok\n`);
+    expect(isReplyHookCommand(hook, "grok")).toBe(true);
+  });
+
+  it("never claims another tool's Stop hook that only mentions voxkey or the same arguments", () => {
+    expect(isReplyHookCommand("notify-send voxkey reply --agent codex", "codex")).toBe(false);
+    expect(isReplyHookCommand("/opt/voxkey-wrapper.sh reply --agent codex", "codex")).toBe(false);
+    expect(isReplyHookCommand("'/usr/bin/node' '/opt/other-tool/index.js' reply --agent codex", "codex")).toBe(false);
   });
 });
 
@@ -105,6 +126,19 @@ describe("addReplyHook and removeReplyHook", () => {
     expect(parse(withoutVoxkey.source)).toEqual({
       hooks: { Stop: [{ hooks: [{ type: "command", command: "notify" }] }] },
     });
+  });
+
+  it("keeps another tool's Stop hook that mentions voxkey when removing", () => {
+    const foreign = '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"say voxkey reply --agent codex"}]}]}}';
+
+    expect(removed(foreign)).toEqual({ source: foreign, changed: false });
+    expect(stopCommands(added(foreign).source)).toEqual(["say voxkey reply --agent codex", command]);
+  });
+
+  it("treats a file as empty only when nothing but {} and whitespace is left, so a comment keeps it", () => {
+    expect(isEmptySettings("{\n}\n")).toBe(true);
+    expect(isEmptySettings("{\n  // my note\n}\n")).toBe(false);
+    expect(isEmptySettings('{"model": "opus"}')).toBe(false);
   });
 
   it("leaves a file without voxkey's entry unchanged and refuses a file that is not a JSON object", () => {

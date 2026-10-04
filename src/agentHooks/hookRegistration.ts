@@ -9,13 +9,7 @@ import { readJsonFile, readTextIfPresent, writeJsonAtomically } from "../state/s
 import { stateFile, stateFolder } from "../state/statePaths.js";
 import { voxkeyInvocation } from "../worker/workerProcesses.js";
 import { type AgentHookTarget, agentHookTargets, agentIdSchema } from "./agentCatalog.js";
-import {
-  addReplyHook,
-  type HookSettingsIssue,
-  isEmptySettings,
-  removeReplyHook,
-  replyHookCommand,
-} from "./hookSettings.js";
+import { addReplyHook, HookSettingsIssue, isEmptySettings, removeReplyHook, replyHookCommand } from "./hookSettings.js";
 
 export const hookChangeSchema = Schema.Struct({
   agent: agentIdSchema,
@@ -73,17 +67,29 @@ const changeFor = (target: AgentHookTarget, change: HookChange["change"]): HookC
   change,
 });
 
-// A settings file voxkey cannot parse is reported and left exactly as it is.
+// A settings file voxkey cannot read or parse is reported and left exactly as it is.
 const reportFailure =
   (target: AgentHookTarget) =>
   (issue: HookSettingsIssue): HookChange => ({ ...changeFor(target, "failed"), issue: issue.message });
+
+// Reading an unreadable file as missing would replace the user's settings with a hook-only file.
+const readSettings = (target: AgentHookTarget): Either.Either<Option.Option<string>, HookSettingsIssue> =>
+  Either.try({
+    try: () => readTextIfPresent(settingsPath(target)),
+    catch: (error) => new HookSettingsIssue({ issue: `the settings file could not be read (${String(error)})` }),
+  });
 
 const registerOne = (target: AgentHookTarget): HookChange => {
   if (!isAgentInstalled(target)) {
     return changeFor(target, "not installed");
   }
 
-  const current = readTextIfPresent(settingsPath(target));
+  const read = readSettings(target);
+  if (Either.isLeft(read)) {
+    return reportFailure(target)(read.left);
+  }
+
+  const current = read.right;
   const invocation = voxkeyInvocation();
   const command = replyHookCommand({
     nodePath: invocation.executable,
@@ -108,7 +114,12 @@ const registerOne = (target: AgentHookTarget): HookChange => {
 };
 
 const unregisterOne = (target: AgentHookTarget): HookChange => {
-  const current = readTextIfPresent(settingsPath(target));
+  const read = readSettings(target);
+  if (Either.isLeft(read)) {
+    return reportFailure(target)(read.left);
+  }
+
+  const current = read.right;
   if (Option.isNone(current)) {
     return changeFor(target, "absent");
   }
@@ -144,11 +155,14 @@ export const unregisterReplyHooks: Effect.Effect<ReadonlyArray<HookChange>> = Ef
 );
 
 const hasReplyHook = (target: AgentHookTarget): boolean =>
-  Option.exists(readTextIfPresent(settingsPath(target)), (text) =>
-    Either.getOrElse(
-      Either.map(removeReplyHook({ source: text, agent: target.agent }), (edit) => edit.changed),
-      () => false,
+  Either.getOrElse(
+    Either.flatMap(readSettings(target), (current) =>
+      Option.match(current, {
+        onNone: () => Either.right(false),
+        onSome: (text) => Either.map(removeReplyHook({ source: text, agent: target.agent }), (edit) => edit.changed),
+      }),
     ),
+    () => false,
   );
 
 /** Which agents currently run `voxkey reply`, for `voxkey status` and `voxkey doctor`. */

@@ -16,17 +16,24 @@ export class ConfigFileError extends Schema.TaggedError<ConfigFileError>()("Conf
 
 const decodeConfigText = Schema.decodeUnknownEither(Schema.parseJson(configSchema), { onExcessProperty: "error" });
 
-/** The saved config, or the defaults when no file exists yet. */
+/** The saved config, or the defaults when no file exists yet; a file that cannot be read is an error, never the defaults. */
 export const readConfig: Effect.Effect<Config, ConfigFileError> = Effect.suspend(() => {
   const filePath = configFilePath();
-  return Option.match(readTextIfPresent(filePath), {
-    onNone: () => Effect.succeed(defaultConfig),
-    onSome: (text) =>
-      Effect.mapError(
-        decodeConfigText(text),
-        (error) => new ConfigFileError({ path: filePath, issue: ParseResult.TreeFormatter.formatErrorSync(error) }),
-      ),
+  const saved = Effect.try({
+    try: () => readTextIfPresent(filePath),
+    catch: (error) => new ConfigFileError({ path: filePath, issue: String(error) }),
   });
+  return Effect.flatMap(
+    saved,
+    Option.match({
+      onNone: () => Effect.succeed(defaultConfig),
+      onSome: (text) =>
+        Effect.mapError(
+          decodeConfigText(text),
+          (error) => new ConfigFileError({ path: filePath, issue: ParseResult.TreeFormatter.formatErrorSync(error) }),
+        ),
+    }),
+  );
 });
 
 /** Workers read the config on every decision; a broken file means defaults, never a crashed worker. */

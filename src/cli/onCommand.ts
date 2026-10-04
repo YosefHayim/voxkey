@@ -124,9 +124,15 @@ export const onCommand = Command.make("on", { hooksOnly: hooksOnlyOption }, (arg
   Effect.gen(function* () {
     yield* TerminalUI.intro("on");
     yield* TerminalUI.step("Registering `voxkey reply` as the Stop hook of each installed agent");
-    yield* showHookChanges(yield* registerReplyHooks);
+    const changes = yield* registerReplyHooks;
+    yield* showHookChanges(changes);
     if (args.hooksOnly) {
-      yield* TerminalUI.outro("Hooks registered. Run `voxkey on` without --hooks-only to start dictation.");
+      const registered = changes.some((change) => change.change === "added" || change.change === "unchanged");
+      yield* TerminalUI.outro(
+        registered
+          ? "Hooks registered. Run `voxkey on` without --hooks-only to start dictation."
+          : "No agent hook is registered (see above).",
+      );
       return;
     }
 

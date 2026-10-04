@@ -19,19 +19,29 @@ export class HookSettingsIssue extends Schema.TaggedError<HookSettingsIssue>()("
 
 type SettingsEdit = { readonly source: string; readonly changed: boolean };
 
-const quoted = (text: string) => `"${text.replaceAll('"', '\\"')}"`;
+// POSIX single quotes: the shell expands nothing inside them, and an embedded ' is closed, escaped, and reopened.
+const shellQuoted = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
 
-/** `"<node>" [loader flags] "<voxkey main>" reply --agent <id>`: the command that identifies voxkey's entry. */
+/** `'<node>' [loader flags] '<voxkey main>' reply --agent <id>`: the command that identifies voxkey's entry. */
 export const replyHookCommand = (request: {
   readonly nodePath: string;
   readonly scriptArguments: ReadonlyArray<string>;
   readonly agent: AgentId;
 }): string =>
-  [quoted(request.nodePath), ...request.scriptArguments.map(quoted), "reply", "--agent", request.agent].join(" ");
+  [shellQuoted(request.nodePath), ...request.scriptArguments.map(shellQuoted), "reply", "--agent", request.agent].join(
+    " ",
+  );
 
-/** voxkey's entry for this agent, whatever path voxkey was installed at when it was written. */
+const QUOTED_WORD = String.raw`'(?:[^']|'\\'')*'`;
+
+const MAIN_SCRIPT_WORD = String.raw`'(?:[^']|'\\'')*/src/cli/main\.[jt]s'`;
+
+/**
+ * voxkey's entry for this agent, whatever path voxkey was installed at when it was written: only the exact shape
+ * replyHookCommand writes (quoted words ending in voxkey's `src/cli/main` script, then `reply --agent <id>`).
+ */
 export const isReplyHookCommand = (command: string, agent: AgentId): boolean =>
-  command.includes("voxkey") && command.trimEnd().endsWith(`reply --agent ${agent}`);
+  new RegExp(`^(?:${QUOTED_WORD} )+${MAIN_SCRIPT_WORD} reply --agent ${agent}$`, "u").test(command.trim());
 
 const hookGroupFor = (command: string) => ({ hooks: [{ type: "command", command }] });
 
@@ -249,6 +259,5 @@ export const addReplyHook = (request: {
   });
 };
 
-/** True when the settings text holds nothing but an empty object (voxkey may then delete its own file). */
-export const isEmptySettings = (source: string): boolean =>
-  Either.match(parseSettings(source), { onLeft: () => false, onRight: (root) => (root.children || []).length === 0 });
+/** True when the settings text is `{}` and whitespace, with no comment (voxkey may then delete its own file). */
+export const isEmptySettings = (source: string): boolean => source.replace(/\s/gu, "") === "{}";

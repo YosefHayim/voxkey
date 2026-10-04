@@ -5,7 +5,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { Effect, Either, Option, Schema } from "effect";
-import { readTextIfPresent, removeIfPresent } from "../state/stateFiles.js";
+import { readTextIfReadable, removeIfPresent } from "../state/stateFiles.js";
 import { stateFolder } from "../state/statePaths.js";
 import { type CliRun, cliOutputText, findCli, runCli } from "./agentCli.js";
 import { providerIdSchema } from "./providerModels.js";
@@ -91,7 +91,7 @@ const codexReply = (attempt: RefineAttempt, executable: string) =>
       }).pipe(
         Effect.map((cliRun) => ({
           cliRun,
-          fileReply: Option.getOrElse(readTextIfPresent(replyFile), () => "").trim(),
+          fileReply: Option.getOrElse(readTextIfReadable(replyFile), () => "").trim(),
         })),
       ),
       Effect.sync(() => removeIfPresent(replyFile)),

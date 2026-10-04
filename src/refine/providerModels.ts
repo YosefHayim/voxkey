@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { Effect, Option, Schema } from "effect";
 
-import { readJsonFile, readTextIfPresent } from "../state/stateFiles.js";
+import { readJsonFile, readTextIfReadable } from "../state/stateFiles.js";
 import { dedupe, findCli, findFirstCli, runCliLines } from "./agentCli.js";
 import { codexLastGoodModel } from "./refineChoices.js";
 
@@ -74,7 +74,7 @@ export const codexCachedModels = (): ReadonlyArray<string> =>
   );
 
 const codexConfiguredModel = (): ReadonlyArray<string> => {
-  const config = Option.getOrElse(readTextIfPresent(path.join(homedir(), ".codex", "config.toml")), () => "");
+  const config = Option.getOrElse(readTextIfReadable(path.join(homedir(), ".codex", "config.toml")), () => "");
   const modelLine = config
     .split("\n")
     .map((line) => line.trim())
