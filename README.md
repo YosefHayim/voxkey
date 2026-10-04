@@ -2,8 +2,6 @@
 
 Hold Shift to dictate into any text field, and hear your coding agent's replies read aloud — all on your Mac, in TypeScript.
 
-Split from dufflebag.
-
 - **Dictation.** Hold Shift on its own for 300 ms, speak, release. Whisper (whisper.cpp large-v3-turbo with Metal) transcribes on your Mac and voxkey types the text at the caret. Any other key pressed while Shift is down cancels, so capital letters and Shift shortcuts never start dictation. A small pill at the bottom of the screen shows "Recording", a live caption, then "Working".
 - **Narration.** When Claude Code, Codex, or Grok finishes a turn, its Stop hook (`voxkey reply`) queues the reply and voxkey reads it aloud with a Supertonic voice. Markdown becomes speech: headings and lists as sentences, tables row by row with their column names, code blocks announced and read symbol by symbol.
 - **Refine.** Optionally rewrite what you dictated (or what you copied) into a clean prompt with an agent CLI you already have — codex, claude, gemini, grok, ollama, opencode, or pi — before it is typed.
