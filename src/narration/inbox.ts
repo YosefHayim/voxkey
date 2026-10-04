@@ -4,13 +4,19 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, renameSync } from "node:fs";
+import { existsSync, readdirSync, renameSync } from "node:fs";
 import path from "node:path";
 
 import { Effect, Option, Schema } from "effect";
 
 import type { Config } from "../config/configSchema.js";
-import { readJsonFile, removeIfPresent, touchFile, writeJsonAtomically } from "../state/stateFiles.js";
+import {
+  makePrivateFolder,
+  readJsonFile,
+  removeIfPresent,
+  touchFile,
+  writeJsonAtomically,
+} from "../state/stateFiles.js";
 import { stateFile, stateFolder } from "../state/statePaths.js";
 import { type CmuxFocus, cmuxFocus } from "./cmuxFocus.js";
 
@@ -157,7 +163,8 @@ export const queueReply = (request: {
     return;
   }
 
-  mkdirSync(inboxFolder(), { recursive: true });
+  // Agent replies are the user's text: the inbox and failed/ are 0700, and each reply file 0600.
+  makePrivateFolder(inboxFolder());
   // Wall-clock milliseconds order replies across processes; the high-resolution counter orders them within one.
   const name = `${String(Date.now()).padStart(15, "0")}-${String(process.hrtime.bigint()).padStart(20, "0")}-${randomUUID()}.json`;
   writeJsonAtomically({ path: path.join(inboxFolder(), name), value: Schema.encodeSync(queuedReplySchema)(reply) });
@@ -253,6 +260,6 @@ export const completeReply = (claimedFile: string): void => removeIfPresent(clai
 
 export const failReply = (claimedFile: string): void => {
   const failed = stateFolder("failed");
-  mkdirSync(failed, { recursive: true });
+  makePrivateFolder(failed);
   renameSync(claimedFile, path.join(failed, path.basename(claimedFile)));
 };

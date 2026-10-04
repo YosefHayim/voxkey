@@ -1,13 +1,14 @@
 /** Deliver refined prompts into cmux: a new focused workspace, or the focused (resumable) surface. */
 
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
 import { Effect, Option, Schema } from "effect";
 
 import type { Config } from "../config/configSchema.js";
+import { writePrivateFile } from "../state/stateFiles.js";
 import { stateFolder } from "../state/statePaths.js";
 import { cliOutputText, findCli, runCli } from "./agentCli.js";
 
@@ -169,10 +170,8 @@ export const workspaceTitle = (text: string): string => {
 };
 
 const writePromptFile = (text: string): string => {
-  const folder = stateFolder("prompts");
-  mkdirSync(folder, { recursive: true });
-  const promptFile = path.join(folder, `prompt-${randomUUID()}.txt`);
-  writeFileSync(promptFile, `${text}\n`, { mode: 0o600 });
+  const promptFile = path.join(stateFolder("prompts"), `prompt-${randomUUID()}.txt`);
+  writePrivateFile({ path: promptFile, flags: "w", contents: `${text}\n` });
   return promptFile;
 };
 

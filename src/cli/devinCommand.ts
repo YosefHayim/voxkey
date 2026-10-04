@@ -1,13 +1,13 @@
 /** `voxkey devin -- <devin arguments>`: run Devin with its ATIF export and narrate each finished turn. */
 
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { Args, Command } from "@effect/cli";
 import { Effect, Schema } from "effect";
 
 import { watchDevinSession } from "../devin/devinWatcher.js";
+import { makePrivateFolder } from "../state/stateFiles.js";
 import { stateFolder } from "../state/statePaths.js";
 import { startWorkers } from "../worker/workerProcesses.js";
 import * as TerminalUI from "./TerminalUI.js";
@@ -39,7 +39,8 @@ export const devinCommand = Command.make(
       yield* TerminalUI.intro("devin");
       yield* startWorkers;
       const folder = path.join(stateFolder("devin"), new Date().toISOString().replace(/[:.]/gu, "-"));
-      mkdirSync(folder, { recursive: true });
+      // Devin writes the whole session here, so the folder is private.
+      makePrivateFolder(folder);
       const exportFile = path.join(folder, "session.atif.json");
       yield* TerminalUI.detail(`Narrating finished turns from Devin's ATIF export (${exportFile}).`);
       const code = yield* watchDevinSession({

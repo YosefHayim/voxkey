@@ -1,4 +1,14 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -147,5 +157,20 @@ describe("inbox", () => {
     expect(inboxNames()).toEqual([]);
     expect(readdirSync(path.join(home, "failed"))).toHaveLength(1);
     expect(JSON.parse(readFileSync(path.join(home, "seen.json"), "utf8"))).toBeTruthy();
+  });
+
+  it("keeps queued and failed replies readable by the user alone, tightening an inbox made looser before", async () => {
+    const permissions = (file: string) => statSync(file).mode & 0o777;
+    mkdirSync(path.join(home, "inbox"));
+    chmodSync(path.join(home, "inbox"), 0o755);
+
+    queueReply({ markdown: "the agent's reply", source: "codex", agentReplyId: "", origin: { kind: "terminal" } });
+    expect(permissions(path.join(home, "inbox"))).toBe(0o700);
+    expect(inboxNames().map((name) => permissions(path.join(home, "inbox", name)))).toEqual([0o600]);
+
+    failReply(Option.getOrThrow(await claim()).file);
+    const failed = path.join(home, "failed");
+    expect(permissions(failed)).toBe(0o700);
+    expect(readdirSync(failed).map((name) => permissions(path.join(failed, name)))).toEqual([0o600]);
   });
 });

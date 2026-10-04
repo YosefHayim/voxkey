@@ -1,15 +1,66 @@
 /** Small state files: written through a temporary sibling and a rename, so readers never see half a file. */
 
 import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  closeSync,
+  fchmodSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 import { Option, Schema } from "effect";
 
+// Dictated, refined, and reply text is readable by the user alone: its files are 0600 and its folders 0700.
+const PRIVATE_FILE_MODE = 0o600;
+
+const PRIVATE_FOLDER_MODE = 0o700;
+
+/** Create a private folder, or tighten one an older build (or the user's umask) left readable by others. */
+export const makePrivateFolder = (folder: string): void => {
+  mkdirSync(folder, { recursive: true, mode: PRIVATE_FOLDER_MODE });
+  chmodSync(folder, PRIVATE_FOLDER_MODE);
+};
+
+/**
+ * Open a file in a private folder to replace ("w") or append to ("a"). A new file is created 0600, and one created
+ * looser before is tightened before anything is written, so its earlier lines become private too.
+ */
+export const openPrivateFile = (request: { readonly path: string; readonly flags: "a" | "w" }): number => {
+  makePrivateFolder(path.dirname(request.path));
+  const descriptor = openSync(request.path, request.flags, PRIVATE_FILE_MODE);
+  try {
+    fchmodSync(descriptor, PRIVATE_FILE_MODE);
+  } catch (error) {
+    closeSync(descriptor);
+    throw error;
+  }
+  return descriptor;
+};
+
+/** Replace or append to a private file (see openPrivateFile) with text or audio. */
+export const writePrivateFile = (request: {
+  readonly path: string;
+  readonly flags: "a" | "w";
+  readonly contents: string | Uint8Array;
+}): void => {
+  const descriptor = openPrivateFile(request);
+  try {
+    writeFileSync(descriptor, request.contents);
+  } finally {
+    closeSync(descriptor);
+  }
+};
+
 export const writeFileAtomically = (request: { readonly path: string; readonly text: string }): void => {
-  mkdirSync(path.dirname(request.path), { recursive: true });
+  mkdirSync(path.dirname(request.path), { recursive: true, mode: PRIVATE_FOLDER_MODE });
   const staging = path.join(path.dirname(request.path), `.${path.basename(request.path)}.${randomUUID()}.partial`);
-  writeFileSync(staging, request.text, { encoding: "utf8", mode: 0o600 });
+  writeFileSync(staging, request.text, { encoding: "utf8", mode: PRIVATE_FILE_MODE });
   renameSync(staging, request.path);
 };
 
@@ -53,6 +104,6 @@ export const readJsonFile = <Value, Encoded>(request: {
 export const removeIfPresent = (filePath: string): void => rmSync(filePath, { force: true });
 
 export const touchFile = (filePath: string): void => {
-  mkdirSync(path.dirname(filePath), { recursive: true });
+  mkdirSync(path.dirname(filePath), { recursive: true, mode: PRIVATE_FOLDER_MODE });
   writeFileSync(filePath, "");
 };

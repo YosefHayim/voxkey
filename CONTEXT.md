@@ -16,7 +16,7 @@ Workers are spawned detached in their own process groups and log to `~/.voxkey/*
 
 ## Files
 
-All state is in `~/.voxkey` (`VOXKEY_HOME`). Writes go through a temporary sibling and a rename. The only files voxkey edits outside it are the agents' hook settings (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.grok/hooks/voxkey.json`), always backed up to `~/.voxkey/backups/` first.
+All state is in `~/.voxkey` (`VOXKEY_HOME`). Writes go through a temporary sibling and a rename. Files that hold dictated, refined, or reply text (`dictation.log`, the worker logs, `status.json`, the inbox, `failed/`, `prompts/`, `audio/`) are 0600 in 0700 folders, and voxkey tightens looser ones when it writes them. The only files voxkey edits outside it are the agents' hook settings (`~/.claude/settings.json`, `~/.codex/hooks.json`, `~/.grok/hooks/voxkey.json`), always backed up to `~/.voxkey/backups/` first.
 
 ## Permissions
 

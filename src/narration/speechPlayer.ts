@@ -10,6 +10,7 @@ import path from "node:path";
 import { Effect, Fiber, Schema } from "effect";
 
 import type { Config } from "../config/configSchema.js";
+import { writePrivateFile } from "../state/stateFiles.js";
 import { stateFolder } from "../state/statePaths.js";
 import { markdownToSpeech } from "./markdownToSpeech.js";
 import { chunkSpeech, SPEECH_CHUNK_CHARACTERS, speedForWordsPerMinute } from "./speechChunks.js";
@@ -60,11 +61,8 @@ type Voice = { readonly voice: Config["narrationVoice"]; readonly wordsPerMinute
 const speechPieces = (markdown: string): ReadonlyArray<string> =>
   chunkSpeech(markdownToSpeech(markdown), SPEECH_CHUNK_CHARACTERS);
 
-const chunkFile = (index: number): string => {
-  const folder = stateFolder("audio");
-  mkdirSync(folder, { recursive: true });
-  return path.join(folder, `narration-${String(process.pid)}-${String(index % 2)}.wav`);
-};
+const chunkFile = (index: number): string =>
+  path.join(stateFolder("audio"), `narration-${String(process.pid)}-${String(index % 2)}.wav`);
 
 /** Play a reply chunk by chunk; "stopped" when the player was stopped before the end. */
 export const speakMarkdown = (request: {
@@ -86,7 +84,12 @@ export const speakMarkdown = (request: {
 
       next = yield* Effect.fork(render(pieces[index + 1] || ""));
       const file = chunkFile(index);
-      writeFileSync(file, encodeWav({ samples, sampleRate: request.engine.sampleRate }));
+      // A chunk is the reply spoken aloud, so it is as private as the reply's text.
+      writePrivateFile({
+        path: file,
+        flags: "w",
+        contents: encodeWav({ samples, sampleRate: request.engine.sampleRate }),
+      });
       yield* request.player.play(file);
     }
     yield* Fiber.interrupt(next);

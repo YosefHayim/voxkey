@@ -1,13 +1,19 @@
 /** The two background workers (dictation, narration): pid and lock files, spawning, stopping, and reset. */
 
 import { spawn, spawnSync } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { Effect, Option, Schema } from "effect";
 
 import { removeInboxFiles } from "../narration/inbox.js";
-import { readTextIfReadable, removeIfPresent, touchFile } from "../state/stateFiles.js";
+import {
+  makePrivateFolder,
+  openPrivateFile,
+  readTextIfReadable,
+  removeIfPresent,
+  touchFile,
+} from "../state/stateFiles.js";
 import { stateFile, voxkeyHome } from "../state/statePaths.js";
 import { readWorkerStatus, writeWorkerStatus } from "./workerStatus.js";
 
@@ -43,7 +49,7 @@ export const readPid = (name: PidFileName): Option.Option<number> =>
   );
 
 export const writePid = (name: PidFileName, pid: number): void => {
-  mkdirSync(voxkeyHome(), { recursive: true });
+  makePrivateFolder(voxkeyHome());
   writeFileSync(stateFile(name), String(pid));
 };
 
@@ -127,7 +133,7 @@ export const signalGroup = (pid: number, signal: NodeJS.Signals): void => {
  * reclaimed. False when another live worker of this kind already runs.
  */
 export const claimWorkerLock = (kind: WorkerKind): boolean => {
-  mkdirSync(voxkeyHome(), { recursive: true });
+  makePrivateFolder(voxkeyHome());
   const ownerAlive = () => Option.exists(runningPid(pidFile(kind)), (pid) => pid !== process.pid);
   if (ownerAlive()) {
     return false;
@@ -169,10 +175,9 @@ export const voxkeyInvocation = (): {
   scriptArguments: [...process.execArgv, entryScript()],
 });
 
-/** Start a worker detached in its own process group, logging to its own file. */
+/** Start a worker detached in its own process group, logging to its own private file (errors can quote text). */
 export const spawnWorker = (kind: WorkerKind): void => {
-  mkdirSync(voxkeyHome(), { recursive: true });
-  const log = openSync(logFile(kind), "a");
+  const log = openPrivateFile({ path: logFile(kind), flags: "a" });
   const invocation = voxkeyInvocation();
   const child = spawn(invocation.executable, [...invocation.scriptArguments, "worker", kind], {
     detached: true,

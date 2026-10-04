@@ -153,7 +153,10 @@ Everything voxkey writes lives in `~/.voxkey` (or `$VOXKEY_HOME`):
 | `dictation.log`, `dictation-worker.log`, `narration-worker.log` | Timings and worker output. |
 | `backups/` | A copy of each agent settings file before voxkey edited it. |
 | `refine-choice.json`, `refine-codex-*.txt` | The last refine pick and Codex's working and failing models. |
+| `prompts/`, `audio/`, `devin/` | Refined prompts handed to cmux, narration audio being played, and Devin session exports. |
 | `*.pid`, `*.lock`, `stop`, `narration-muted` | Worker bookkeeping. |
+
+What you dictate and what agents reply stays yours: every file that holds it is created readable by you alone (mode 0600), in folders only you can open (0700, `~/.voxkey` included). voxkey tightens such a file or folder whenever it finds one looser.
 
 Agent hooks: `~/.claude/settings.json`, `~/.codex/hooks.json`, and `~/.grok/hooks/voxkey.json` each get one Stop entry whose command ends in `reply --agent <id>`; `voxkey off` removes exactly that entry.
 

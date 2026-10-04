@@ -26,7 +26,7 @@ const settingsPath = (target: AgentHookTarget) => path.join(homedir(), target.se
 
 const backupFile = (target: AgentHookTarget): string => {
   const folder = stateFolder("backups");
-  mkdirSync(folder, { recursive: true });
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
   const stamp = new Date().toISOString().replace(/[:.]/gu, "-");
   const backup = path.join(folder, `${target.agent}-${path.basename(target.settingsFile)}-${stamp}`);
   copyFileSync(settingsPath(target), backup);

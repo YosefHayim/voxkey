@@ -1,11 +1,10 @@
 /** One refine attempt with one agent CLI and one model; every provider's reply goes through the same checks. */
 
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { Effect, Either, Option, Schema } from "effect";
-import { readTextIfReadable, removeIfPresent } from "../state/stateFiles.js";
+import { makePrivateFolder, readTextIfReadable, removeIfPresent } from "../state/stateFiles.js";
 import { stateFolder } from "../state/statePaths.js";
 import { type CliRun, cliOutputText, findCli, runCli } from "./agentCli.js";
 import { providerIdSchema } from "./providerModels.js";
@@ -79,8 +78,9 @@ const isNamedModel = (model: string, defaults: ReadonlyArray<string>) =>
 // Trust codex's -o file: for a bad model codex prints an ERROR JSON on stdout with a non-zero exit.
 const codexReply = (attempt: RefineAttempt, executable: string) =>
   Effect.gen(function* () {
+    // Codex writes the refined prompt here with its own file mode, so the folder keeps it private.
     const folder = stateFolder("prompts");
-    mkdirSync(folder, { recursive: true });
+    makePrivateFolder(folder);
     const replyFile = path.join(folder, `codex-${randomUUID()}.txt`);
     const effort = attempt.effort === "" ? [] : ["-c", `model_reasoning_effort="${attempt.effort}"`];
     const execution = yield* Effect.ensuring(
