@@ -47,4 +47,19 @@ describe("markdownToSpeech", () => {
   it("keeps an escaped emphasis marker", () => {
     expect(markdownToSpeech("2 \\* 3")).toBe("2 \\* 3.");
   });
+
+  it("drops paired emphasis only, so math, globs, and snake_case keep their symbols", () => {
+    expect(markdownToSpeech("Use *care*: 2 * 3, *.ts, snake_case_name, __bold__ and ~~old~~")).toBe(
+      "Use care: 2 * 3, *.ts, snake_case_name, bold and old.",
+    );
+  });
+
+  it("reads inline code as written, generics and dunders included, even inside bold", () => {
+    expect(markdownToSpeech("Return **`Array<T>`** from `__init__` <br>")).toBe("Return Array<T> from __init__.");
+  });
+
+  it("keeps an escaped pipe inside its table cell", () => {
+    const table = "| Operator | Meaning |\n| --- | --- |\n| `a \\|\\| b` | either one |";
+    expect(markdownToSpeech(table)).toBe("Row 1. Operator: a || b. Meaning: either one.");
+  });
 });

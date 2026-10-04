@@ -1,9 +1,10 @@
 /** `voxkey devin`: queue each finished Devin turn from its official ATIF export for narration. */
 
-import { Effect, Option, Schema } from "effect";
+import { Duration, Effect, Fiber, Option, Schema } from "effect";
 
 import { queueReply } from "../narration/inbox.js";
 import { readJsonFile } from "../state/stateFiles.js";
+import { appendNarrationLog } from "../worker/workerLog.js";
 
 const atifExportSchema = Schema.Struct({
   steps: Schema.Array(
@@ -45,7 +46,10 @@ const readTurn = (exportFile: string): DevinTurn =>
     () => noTurn,
   );
 
-/** Queue the pending turn when it is still the latest; returns the turn now spoken. */
+/**
+ * Queue the pending turn when it is still the latest; returns the turn now spoken. A turn that cannot be queued
+ * is logged and passed over, so the watcher keeps narrating later turns.
+ */
 const confirmTurn = (request: {
   readonly exportFile: string;
   readonly pendingTurn: string;
@@ -56,14 +60,23 @@ const confirmTurn = (request: {
     return request.spokenTurn;
   }
 
-  queueReply({
-    markdown: confirmed.markdown,
-    source: "devin",
-    agentReplyId: confirmed.turnId,
-    origin: { kind: "terminal" },
-  });
+  try {
+    queueReply({
+      markdown: confirmed.markdown,
+      source: "devin",
+      agentReplyId: confirmed.turnId,
+      origin: { kind: "terminal" },
+    });
+  } catch (error) {
+    appendNarrationLog(`devin turn ${confirmed.turnId} not queued: ${String(error)}`);
+  }
   return confirmed.turnId;
 };
+
+/** How long a turn ID must stay the same before the turn is queued. */
+const TURN_SETTLE_MS = 800;
+
+const POLL_INTERVAL_MS = 200;
 
 /** Debounced: a turn is queued only once its ID has been stable for 800 ms. Runs until interrupted. */
 export const watchDevinExport = (exportFile: string): Effect.Effect<never> =>
@@ -77,10 +90,26 @@ export const watchDevinExport = (exportFile: string): Effect.Effect<never> =>
         pendingTurn = turnId;
         changedAt = Date.now();
       }
-      if (pendingTurn !== "" && Date.now() - changedAt >= 800) {
+      if (pendingTurn !== "" && Date.now() - changedAt >= TURN_SETTLE_MS) {
         spokenTurn = confirmTurn({ exportFile, pendingTurn, spokenTurn });
         pendingTurn = "";
       }
-      yield* Effect.sleep("200 millis");
+      yield* Effect.sleep(Duration.millis(POLL_INTERVAL_MS));
     }
+  });
+
+/**
+ * Watch the export while `session` (Devin) runs, then long enough for a turn written as Devin exits to be seen,
+ * settle, and be queued; the session's own value is returned.
+ */
+export const watchDevinSession = <Value, Failure>(request: {
+  readonly exportFile: string;
+  readonly session: Effect.Effect<Value, Failure>;
+}): Effect.Effect<Value, Failure> =>
+  Effect.gen(function* () {
+    const watcher = yield* Effect.fork(watchDevinExport(request.exportFile));
+    const value = yield* request.session;
+    yield* Effect.sleep(Duration.millis(TURN_SETTLE_MS + 2 * POLL_INTERVAL_MS));
+    yield* Fiber.interrupt(watcher);
+    return value;
   });

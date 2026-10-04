@@ -26,17 +26,27 @@ const identitySchema = Schema.Struct({
 
 const SOCKET_TIMEOUT_MS = 500;
 
-/** One JSON-lines request; the `result` of an `ok` reply, or none when Cmux does not answer. */
+/**
+ * One JSON-lines request; the `result` of an `ok` reply, or none when Cmux does not answer, fails, or closes
+ * the connection without a reply line (the idle timeout does not fire after the peer has closed).
+ */
 const askCmux = (request: { readonly socketPath: string; readonly method: string }) =>
   Effect.async<Option.Option<unknown>>((resume) => {
     const socket = createConnection(request.socketPath);
     let received = "";
+    let answered = false;
     const finish = (answer: Option.Option<unknown>) => {
+      if (answered) {
+        return;
+      }
+
+      answered = true;
       socket.destroy();
       resume(Effect.succeed(answer));
     };
     socket.setTimeout(SOCKET_TIMEOUT_MS, () => finish(Option.none()));
     socket.on("error", () => finish(Option.none()));
+    socket.on("close", () => finish(Option.none()));
     socket.on("connect", () =>
       socket.write(`${JSON.stringify({ id: "voxkey", method: request.method, params: {} })}\n`),
     );

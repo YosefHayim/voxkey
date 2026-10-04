@@ -5,9 +5,9 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { Args, Command } from "@effect/cli";
-import { Effect, Fiber, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
-import { watchDevinExport } from "../devin/devinWatcher.js";
+import { watchDevinSession } from "../devin/devinWatcher.js";
 import { stateFolder } from "../state/statePaths.js";
 import { startWorkers } from "../worker/workerProcesses.js";
 import * as TerminalUI from "./TerminalUI.js";
@@ -41,10 +41,11 @@ export const devinCommand = Command.make(
       const folder = path.join(stateFolder("devin"), new Date().toISOString().replace(/[:.]/gu, "-"));
       mkdirSync(folder, { recursive: true });
       const exportFile = path.join(folder, "session.atif.json");
-      const watcher = yield* Effect.fork(watchDevinExport(exportFile));
       yield* TerminalUI.detail(`Narrating finished turns from Devin's ATIF export (${exportFile}).`);
-      const code = yield* runDevin(["--export", exportFile, ...args.devinArguments]);
-      yield* Fiber.interrupt(watcher);
+      const code = yield* watchDevinSession({
+        exportFile,
+        session: runDevin(["--export", exportFile, ...args.devinArguments]),
+      });
       yield* TerminalUI.outro(`Devin exited with ${String(code)}; the watcher stopped.`);
     }),
 ).pipe(Command.withDescription("Run Devin and read each finished turn aloud from its official ATIF export"));

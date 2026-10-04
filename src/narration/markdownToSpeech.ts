@@ -5,22 +5,33 @@ const sentence = (text: string): string => {
   return clean === "" || /[.!?:;]$/u.test(clean) ? clean : `${clean}.`;
 };
 
-// Emphasis markers are dropped unless escaped with a backslash.
-const withoutEmphasis = (text: string): string => text.replace(/(?<!\\)[*_~]/gu, "");
+// Paired emphasis markers only (**bold**, *it*, _it_, ~~gone~~); a lone or escaped one (2 * 3, *.ts, snake_case) is text.
+const withoutEmphasis = (text: string): string =>
+  text
+    .replace(/(?<![\\\p{L}\p{N}_*~])(\*\*|__|~~)(?=\S)(.+?)(?<=\S)\1(?![\p{L}\p{N}_*~])/gu, "$2")
+    .replace(/(?<![\\\p{L}\p{N}_*~])([*_~])(?=\S)(.+?)(?<=\S)\1(?![\p{L}\p{N}_*~])/gu, "$2");
 
-const inlineSpeech = (text: string): string =>
-  withoutEmphasis(
-    text
-      .replace(/!\[\s*\]\(/gu, "![image](")
-      .replace(/!\[\s*([^\]]*?)\s*\]\(\s*([^)]+?)\s*\)/gu, "Image: $1. Source $2")
-      .replace(/\[\s*([^\]]+?)\s*\]\(\s*([^)]+?)\s*\)/gu, "$1, link $2")
-      .replace(/<(https?:\/\/[^>]+)>/gu, "link $1")
-      .replace(/`([^`]*)`/gu, "$1")
-      .replace(/<[^>]+>/gu, " "),
-  )
+const CODE_SPAN = /`([^`]*)`/gu;
+
+/** A private-use character marks where a code span was set aside. */
+const SET_ASIDE = /\uE000(\d+)\uE000/gu;
+
+// Code spans are set aside while emphasis and HTML tags are removed, so `Array<T>` and `__init__` stay as written.
+const inlineSpeech = (text: string): string => {
+  const linked = text
+    .replace(/!\[\s*\]\(/gu, "![image](")
+    .replace(/!\[\s*([^\]]*?)\s*\]\(\s*([^)]+?)\s*\)/gu, "Image: $1. Source $2")
+    .replace(/\[\s*([^\]]+?)\s*\]\(\s*([^)]+?)\s*\)/gu, "$1, link $2")
+    .replace(/<(https?:\/\/[^>]+)>/gu, "link $1");
+  const codeSpans: Array<string> = [];
+  const prose = linked.replace(CODE_SPAN, (_span, code: string) => `\uE000${String(codeSpans.push(code) - 1)}\uE000`);
+  return withoutEmphasis(prose)
+    .replace(/<[^>]+>/gu, " ")
+    .replace(SET_ASIDE, (_marker, index: string) => codeSpans[Number(index)] || "")
     .split(/\s+/u)
     .filter(Boolean)
     .join(" ");
+};
 
 // Longer symbols first, so "===" is never read as "==" plus "=".
 const SPOKEN_SYMBOLS: ReadonlyArray<readonly [string, string]> = [
@@ -74,13 +85,14 @@ const QUOTE = /^\s*>\s?(.*)$/u;
 const RULE = /^\s*(?:[-*_]\s*){3,}$/u;
 const TABLE_SEPARATOR = /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$/u;
 
+// Cells split at unescaped pipes; an escaped pipe (\|) is a literal "|" inside its cell.
 const tableCells = (line: string): ReadonlyArray<string> =>
   line
     .trim()
     .replace(/^\|/u, "")
-    .replace(/\|$/u, "")
-    .split("|")
-    .map((cell) => inlineSpeech(cell));
+    .replace(/(?<!\\)\|$/u, "")
+    .split(/(?<!\\)\|/u)
+    .map((cell) => inlineSpeech(cell.replaceAll("\\|", "|")));
 
 const isTableStart = (line: string, nextLine: string | undefined): boolean =>
   line.includes("|") && nextLine !== undefined && TABLE_SEPARATOR.test(nextLine);
