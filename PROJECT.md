@@ -26,4 +26,4 @@ Talk to coding agents and listen to them, on a Mac, without sending audio anywhe
 
 - Keep the dictation path fast: model loaded once, mic always open, serial queue.
 - Prefer maintained npm packages with prebuilt macOS binaries over system tools, and system tools over Homebrew tools.
-- Open questions and their chosen options live in `docs/PARITY.md`.
+- Decisions go in the PR description.

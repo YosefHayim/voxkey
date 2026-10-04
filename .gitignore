@@ -1,7 +1,16 @@
+# dependencies
 node_modules/
+
+# build
 dist/
+
+# testing
 coverage/
-.DS_Store
-docs/agent/
-src/scripts/dev/
 .scratch/
+
+# editor and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
