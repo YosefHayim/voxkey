@@ -99,6 +99,13 @@ describe("rule-card format", () => {
     expect(messagesFor(guide)).toContain('CODE-STYLE.md needs a "## Never" section.');
   });
 
+  it("requires the exact Rules heading, so a qualified one cannot hide every card", () => {
+    const guide = guideWith(validCards).replace("## Rules\n", "## Rules — draft\n");
+    expect(checkRuleCards({ guide }).map((violation) => violation.message)).toContain(
+      'CODE-STYLE.md needs a "## Rules" section.',
+    );
+  });
+
   it("requires a metadata line under each card heading", () => {
     const guide = guideWith(validCards).replace("[rule:function.arrow-only] · verify: `pnpm style`\n", "");
 

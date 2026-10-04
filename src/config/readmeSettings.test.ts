@@ -8,10 +8,14 @@ import { environmentVariableNames } from "./environmentVariables.js";
 const readme = readFileSync(new URL("../../README.md", import.meta.url), "utf8");
 
 describe("README", () => {
-  it("documents every setting with its description", () => {
+  it("documents every setting with its own description in its own row", () => {
+    const rows = readme.split("\n");
     for (const setting of configSettings) {
-      expect(readme).toContain(`| \`${setting.name}\` |`);
-      expect(readme).toContain(setting.description.replaceAll("|", "\\|"));
+      const description = setting.description.replaceAll("|", "\\|");
+      const documented = rows.some(
+        (line) => line.startsWith(`| \`${setting.name}\` |`) && line.includes(` | ${description} |`),
+      );
+      expect(documented, setting.name).toBe(true);
     }
   });
 

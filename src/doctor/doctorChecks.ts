@@ -109,7 +109,7 @@ const ALLOW_TERMINAL = "allow your terminal app (or the app that runs voxkey).";
 const keyboardPermissionChecks = Effect.map(
   loadKeyboard,
   (keyboard): ReadonlyArray<DoctorCheck> => [
-    keyboard.accessibilityAllowed()
+    keyboard.accessibilityAllowed() && keyboard.postingAllowed()
       ? ok("Accessibility", "voxkey can type at the caret")
       : problem({
           name: "Accessibility",

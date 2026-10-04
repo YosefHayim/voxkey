@@ -2,7 +2,7 @@
 
 import { Prompt } from "@effect/cli";
 import { Terminal } from "@effect/platform";
-import { Effect } from "effect";
+import { Console, Effect } from "effect";
 
 const display = (text: string) => Effect.flatMap(Terminal.Terminal, (terminal) => terminal.display(text));
 
@@ -40,7 +40,9 @@ export const note = (message: string, title?: string) =>
     }
   });
 
-export const showError = (error: unknown) => fail(error instanceof Error ? error.message : String(error));
+/** The one line for a failed command, on stderr, so `--json` output on stdout stays one parseable document. */
+export const showError = (error: unknown) =>
+  Console.error(`  ✗ ${error instanceof Error ? error.message : String(error)}`);
 
 // Every prompt answers with its fallback when there is no terminal, so non-TTY runs never block.
 export const confirm = (input: { message: string; initialValue: boolean }) =>
@@ -59,7 +61,10 @@ export const selectOne = <Value>(input: {
 }) =>
   Effect.gen(function* () {
     if (yield* isInteractiveTerminal) {
-      return yield* Prompt.run(Prompt.select({ message: input.message, choices: input.choices }));
+      // Prompt.select has no initial choice, so the initial one is listed first and highlighted.
+      const initial = input.choices.filter((choice) => choice.value === input.initial);
+      const others = input.choices.filter((choice) => choice.value !== input.initial);
+      return yield* Prompt.run(Prompt.select({ message: input.message, choices: [...initial, ...others] }));
     }
 
     const fallback = input.initial === undefined ? input.choices.at(0)?.value : input.initial;

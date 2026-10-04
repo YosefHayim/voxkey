@@ -32,6 +32,16 @@ const voxkey = (args: ReadonlyArray<string>) => {
   });
 };
 
+describe("voxkey config errors", () => {
+  it("go to stderr, so stdout carries only the command's own output", () => {
+    const get = voxkey(["config", "get", "no-such-setting"]);
+
+    expect(get.status).toBe(2);
+    expect(get.stdout).toBe("");
+    expect(get.stderr).toContain('Unknown setting "no-such-setting"');
+  });
+});
+
 describe("voxkey config set narration-mode off", () => {
   it("stops the reply being read now instead of after it ends", async () => {
     const marker = path.join(home, "stopped");

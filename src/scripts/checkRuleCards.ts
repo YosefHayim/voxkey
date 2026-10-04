@@ -191,14 +191,17 @@ const cardRuleIds = (request: { lines: ReadonlyArray<string>; cards: ReadonlyArr
     )
     .flatMap((match) => (match?.[1] === undefined ? [] : [match[1]]));
 
+// The rules section is found by its exact heading (see rulesSectionRange); the others may carry a qualifier, as in
+// "Golden path — adding a feature". A "## Rules — …" heading would otherwise pass here while every card went unchecked.
+const hasSection = (headings: ReadonlyArray<SectionHeading>, section: string): boolean =>
+  headings.some((heading) => (section === "Rules" ? heading.title === section : heading.title.startsWith(section)));
+
 const missingSectionViolations = (headings: ReadonlyArray<SectionHeading>): ReadonlyArray<RuleCardViolation> =>
-  REQUIRED_SECTIONS.filter((section) => !headings.some((heading) => heading.title.startsWith(section))).map(
-    (section) => ({
-      ruleId: FORMAT_RULE,
-      line: 1,
-      message: `CODE-STYLE.md needs a "## ${section}" section.`,
-    }),
-  );
+  REQUIRED_SECTIONS.filter((section) => !hasSection(headings, section)).map((section) => ({
+    ruleId: FORMAT_RULE,
+    line: 1,
+    message: `CODE-STYLE.md needs a "## ${section}" section.`,
+  }));
 
 const duplicateCardViolations = (documentedIds: ReadonlyArray<string>): ReadonlyArray<RuleCardViolation> => {
   const counts = new Map<string, number>();

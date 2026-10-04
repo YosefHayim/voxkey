@@ -1,10 +1,9 @@
 /** Download one model file over HTTPS to `<file>.partial`, then rename it into place. */
 
-import { once } from "node:events";
-import { createWriteStream, mkdirSync, renameSync, rmSync, type WriteStream } from "node:fs";
+import { createWriteStream, mkdirSync, renameSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { finished } from "node:stream/promises";
+import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
 
 import { Effect, Schema } from "effect";
@@ -20,26 +19,26 @@ export class ModelDownloadError extends Schema.TaggedError<ModelDownloadError>()
 
 const PROGRESS_STEP_BYTES = 20_000_000;
 
-const copyWithProgress = async (request: {
+/** Copy the download into `partial`, reporting progress every PROGRESS_STEP_BYTES and once at the end. */
+const copyToFile = async (request: {
   readonly source: Readable;
-  readonly output: WriteStream;
+  readonly partial: string;
   readonly onProgress: (receivedBytes: number) => void;
-}): Promise<number> => {
+}): Promise<void> => {
   let received = 0;
   let reported = 0;
-  for await (const chunk of request.source) {
-    received += Buffer.byteLength(chunk);
+  // pipeline listens for errors on every stream before data flows, so a file that cannot be opened or written
+  // rejects here instead of raising an unhandled stream error.
+  const copied = pipeline(request.source, createWriteStream(request.partial));
+  request.source.on("data", (chunk: Buffer) => {
+    received += chunk.length;
     if (received - reported >= PROGRESS_STEP_BYTES) {
       reported = received;
       request.onProgress(received);
     }
-    if (!request.output.write(chunk)) {
-      await once(request.output, "drain");
-    }
-  }
-  request.output.end();
-  await finished(request.output);
-  return received;
+  });
+  await copied;
+  request.onProgress(received);
 };
 
 export const downloadFile = (request: {
@@ -56,21 +55,17 @@ export const downloadFile = (request: {
         throw new Error(`HTTP ${String(reply.status)}`);
       }
 
-      const output = createWriteStream(partial);
-      let received = 0;
       try {
         // The web stream type from fetch and node:stream/web describe the same object (external type).
-        received = await copyWithProgress({
+        await copyToFile({
           source: Readable.fromWeb(reply.body as ReadableStream<Uint8Array>),
-          output,
+          partial,
           onProgress: request.onProgress,
         });
       } catch (error) {
-        output.destroy();
         rmSync(partial, { force: true });
         throw error;
       }
-      request.onProgress(received);
       renameSync(partial, request.destination);
     },
     catch: (error) =>
