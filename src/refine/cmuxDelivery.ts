@@ -143,16 +143,25 @@ const deliveryFolder = Effect.gen(function* () {
 /** Safe inside a single-quoted shell string: ' becomes '\''. */
 export const shellSingleQuote = (text: string): string => `'${text.replaceAll("'", "'\\''")}'`;
 
+/**
+ * The template with each placeholder replaced by one shell-quoted word, in a single pass, so a folder or file name
+ * with spaces or `$(...)` stays one literal argument and a placeholder inside the prompt text is never expanded.
+ */
 export const expandCommandTemplate = (request: {
   readonly template: string;
   readonly prompt: string;
   readonly promptFile: string;
   readonly folder: string;
-}): string =>
-  request.template
-    .replaceAll("{{prompt_file}}", request.promptFile)
-    .replaceAll("{{prompt}}", shellSingleQuote(request.prompt))
-    .replaceAll("{{cwd}}", request.folder);
+}): string => {
+  const values: Readonly<Record<string, string>> = {
+    prompt_file: request.promptFile,
+    prompt: request.prompt,
+    cwd: request.folder,
+  };
+  return request.template.replace(/\{\{(prompt_file|prompt|cwd)\}\}/gu, (_placeholder, name: string) =>
+    shellSingleQuote(values[name] || ""),
+  );
+};
 
 export const workspaceTitle = (text: string): string => {
   const firstLine = [...(text.split("\n")[0] || "").trim()].slice(0, 40).join("");

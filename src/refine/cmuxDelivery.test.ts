@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+
 import { describe, expect, it } from "vitest";
 
 import { expandCommandTemplate, shellSingleQuote, surfaceParams, workspaceTitle } from "./cmuxDelivery.js";
@@ -7,7 +9,7 @@ describe("cmux delivery", () => {
     expect(shellSingleQuote("it's")).toBe("'it'\\''s'");
   });
 
-  it("expands the command template placeholders", () => {
+  it("expands each placeholder to one shell-quoted word", () => {
     expect(
       expandCommandTemplate({
         template: 'cd {{cwd}} && codex --yolo -- "$(cat {{prompt_file}})" {{prompt}}',
@@ -15,7 +17,19 @@ describe("cmux delivery", () => {
         promptFile: "/x/p.txt",
         folder: "/cwd",
       }),
-    ).toBe(`cd /cwd && codex --yolo -- "$(cat /x/p.txt)" 'it'\\''s'`);
+    ).toBe(`cd '/cwd' && codex --yolo -- "$(cat '/x/p.txt')" 'it'\\''s'`);
+  });
+
+  it("keeps a folder with spaces or `$(...)` as one literal argument, and never expands a placeholder in the prompt", () => {
+    const command = expandCommandTemplate({
+      template: "printf '%s|' {{cwd}} {{prompt}}",
+      prompt: "use {{cwd}} here",
+      promptFile: "/x/p.txt",
+      folder: "/Users/me/My Repo/$(echo injected)",
+    });
+    const shell = spawnSync("/bin/sh", ["-c", command], { encoding: "utf8" });
+
+    expect(shell.stdout).toBe("/Users/me/My Repo/$(echo injected)|use {{cwd}} here|");
   });
 
   it("addresses a surface by ref or by ID", () => {

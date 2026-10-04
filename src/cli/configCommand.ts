@@ -140,7 +140,11 @@ const pickInTerminal = (config: Config) =>
     });
     const model = yield* TerminalUI.selectOne({
       message: `Model for ${provider.id}`,
-      choices: pickerModels({ provider: provider.id, providers, preferred: config.refineModel || "" }).map((name) => ({
+      choices: pickerModels({
+        provider: provider.id,
+        providers,
+        preferred: { provider: config.refineProvider, model: config.refineModel || "" },
+      }).map((name) => ({
         title: name,
         value: name,
       })),

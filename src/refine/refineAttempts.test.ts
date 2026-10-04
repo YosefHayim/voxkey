@@ -5,9 +5,11 @@ import { fileURLToPath } from "node:url";
 import { Effect, Exit } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { discoverProviders } from "./providerModels.js";
+import { type DiscoveredProvider, discoverProviders } from "./providerModels.js";
 import { attemptQueue, codexModelCandidates, refinePrompt, shouldRotate } from "./refineAttempts.js";
 import { codexFailedModels } from "./refineChoices.js";
+import { pickerModels } from "./refinePicker.js";
+import { refineWithProvider } from "./refineProviders.js";
 
 const scratchRoot = fileURLToPath(new URL("../../.scratch/", import.meta.url));
 
@@ -102,6 +104,23 @@ describe("refine rotation", () => {
     expect(queue.find((attempt) => attempt.provider === "opencode")?.model).toBe("opencode/big-pickle");
   });
 
+  it("auto tries the first provider's models, then one model from each of four fallback providers", async () => {
+    writeFakeCli("opencode", 'printf "a/one\\na/two\\na/three\\na/four\\n"');
+    const queue = await Effect.runPromise(attemptQueue({ provider: "auto", model: "" }));
+    const providers = queue.map((attempt) => attempt.provider);
+
+    expect(providers.filter((provider) => provider === "codex")).toHaveLength(6);
+    expect(providers.slice(6)).toEqual(["opencode", "gemini", "grok", "pi"]);
+  });
+
+  it("rejects a CLI that exits non-zero instead of typing its error text", async () => {
+    writeFakeCli("grok", 'echo "network unreachable, try again later" >&2; exit 1');
+    const attempt = { provider: "grok" as const, model: "", effort: "", draft: "make a branch for the login fix" };
+    const exit = await Effect.runPromiseExit(refineWithProvider(attempt));
+
+    expect(Exit.isFailure(exit)).toBe(true);
+  });
+
   it("refines with codex, keeps protected literals, and remembers the working model", async () => {
     fakeCodex({ reply: "finish-and-push: run `pnpm verify` then open a PR", badModels: [] });
     const refined = await refine("uh run `pnpm verify` and like open a pr dont merge");
@@ -128,6 +147,20 @@ describe("refine rotation", () => {
 });
 
 describe("discoverProviders", () => {
+  it("lists models from the same CLI refine runs: gemini before agy, and pie when pi is missing", async () => {
+    writeFakeCli("gemini", 'echo "  -m, --model   e.g. gemini-2.5-pro"');
+    writeFakeCli("agy", 'echo "claude-sonnet-4-5Claude Sonnet 4.5"');
+    rmSync(path.join(bin, "pi"));
+    writeFakeCli("pie", 'echo "openai-codex  gpt-5.4-mini  272K"');
+    const providers = await Effect.runPromise(discoverProviders({ refresh: true }));
+
+    expect(providers.find((provider) => provider.id === "gemini")?.models).toEqual(["gemini-2.5-pro"]);
+    expect(providers.find((provider) => provider.id === "pi")).toMatchObject({
+      binary: "pie",
+      models: ["openai-codex/gpt-5.4-mini"],
+    });
+  });
+
   it("lists installed providers with their models", async () => {
     writeFakeCli("ollama", 'echo "NAME ID SIZE"; echo "llama3.2:latest abc 2.0 GB"');
     const providers = await Effect.runPromise(discoverProviders({ refresh: true }));
@@ -149,5 +182,33 @@ describe("discoverProviders", () => {
       "opencode",
       "pi",
     ]);
+  });
+});
+
+describe("pickerModels", () => {
+  const providers: ReadonlyArray<DiscoveredProvider> = [
+    { id: "opencode", binary: "opencode", path: "/bin/opencode", effort: true, models: ["opencode/big-pickle"] },
+    { id: "codex", binary: "codex", path: "/bin/codex", effort: true, models: ["gpt-5.4-mini"] },
+  ];
+
+  it("offers the preferred model first only for its own provider", () => {
+    expect(
+      pickerModels({ provider: "opencode", providers, preferred: { provider: "codex", model: "gpt-5.5" } }),
+    ).toEqual(["opencode/big-pickle"]);
+    expect(
+      pickerModels({ provider: "opencode", providers, preferred: { provider: "opencode", model: "opencode/grok" } }),
+    ).toEqual(["opencode/grok", "opencode/big-pickle"]);
+  });
+
+  it("never offers a model saved for another provider as a Codex model", () => {
+    mkdirSync(path.join(home, ".voxkey"), { recursive: true });
+    writeFileSync(
+      path.join(home, ".voxkey", "refine-choice.json"),
+      JSON.stringify({ provider: "claude", model: "opus", effort: "", updatedAt: 1 }),
+    );
+
+    expect(
+      pickerModels({ provider: "codex", providers, preferred: { provider: "claude", model: "opus" } }),
+    ).not.toContain("opus");
   });
 });

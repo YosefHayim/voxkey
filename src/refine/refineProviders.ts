@@ -60,6 +60,19 @@ const run = (
     (error) => fail(attempt, error.message),
   );
 
+// A CLI that exits non-zero failed, whatever it printed: its stderr is a diagnostic, never a refined prompt.
+const runSucceeded = (
+  attempt: RefineAttempt,
+  invocation: { readonly executable: string; readonly args: ReadonlyArray<string> },
+) =>
+  Effect.flatMap(run(attempt, invocation), (cliRun) =>
+    cliRun.exitCode === 0
+      ? Effect.succeed(cliRun)
+      : Effect.fail(
+          fail(attempt, cliOutputText(cliRun) || `${attempt.provider} exited with ${String(cliRun.exitCode)}`),
+        ),
+  );
+
 const isNamedModel = (model: string, defaults: ReadonlyArray<string>) =>
   model.trim() !== "" && !defaults.includes(model.trim());
 
@@ -111,7 +124,7 @@ const codexReply = (attempt: RefineAttempt, executable: string) =>
 
 const grokReply = (attempt: RefineAttempt, executable: string) =>
   Effect.map(
-    run(attempt, {
+    runSucceeded(attempt, {
       executable,
       args: [
         "-p",
@@ -170,7 +183,7 @@ const opencodeReply = (attempt: RefineAttempt, executable: string) =>
     const variant = ["minimal", "low", "medium", "high", "max", "xhigh"].includes(effort)
       ? ["--variant", effort === "xhigh" ? "max" : effort]
       : [];
-    const cliRun = yield* run(attempt, {
+    const cliRun = yield* runSucceeded(attempt, {
       executable,
       args: [
         "run",
@@ -196,7 +209,7 @@ const opencodeReply = (attempt: RefineAttempt, executable: string) =>
 
 const claudeReply = (attempt: RefineAttempt, executable: string) =>
   Effect.map(
-    run(attempt, {
+    runSucceeded(attempt, {
       executable,
       args: [
         "-p",
@@ -235,7 +248,7 @@ const geminiReply = (attempt: RefineAttempt, executable: string) => {
         ]
       : ["-p", refinePromptFor(attempt.draft), ...model.flatMap((name) => ["-m", name])];
   return Effect.map(
-    run(attempt, { executable, args }),
+    runSucceeded(attempt, { executable, args }),
     (cliRun) => replyTextFromJson(cliRun.stdout) || cliOutputText(cliRun),
   );
 };
@@ -245,7 +258,7 @@ const piReply = (attempt: RefineAttempt, executable: string) => {
   const effort = attempt.effort.toLowerCase();
   const thinking = ["minimal", "low", "medium", "high", "xhigh", "off", "max"].includes(effort) ? effort : "low";
   return Effect.map(
-    run(attempt, {
+    runSucceeded(attempt, {
       executable,
       args: [
         "--no-tools",

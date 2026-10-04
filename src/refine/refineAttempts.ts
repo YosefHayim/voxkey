@@ -99,16 +99,14 @@ const autoAttempts = (preferredModel: string): Effect.Effect<ReadonlyArray<Attem
       ...FALLBACK_ORDER.filter((provider) => provider === savedProvider),
       ...FALLBACK_ORDER.filter((provider) => provider !== savedProvider),
     ].filter(isProviderInstalled);
+    // The first provider gets its model list; each fallback provider one model, as in the non-auto queue.
     const attempts: Array<AttemptTarget> = [];
-    for (const provider of order) {
+    for (const [index, provider] of order.slice(0, 1 + MAX_CROSS_PROVIDER_ATTEMPTS).entries()) {
       const preferred = provider === savedProvider ? preferredModel : savedModelFor(saved, provider);
       const models = yield* modelCandidates(provider, preferred);
-      attempts.push(...models.map((model) => ({ provider, model })));
-      if (attempts.length >= MAX_MODELS_PER_PROVIDER + MAX_CROSS_PROVIDER_ATTEMPTS) {
-        break;
-      }
+      attempts.push(...(index === 0 ? models : models.slice(0, 1)).map((model) => ({ provider, model })));
     }
-    return attempts.slice(0, MAX_MODELS_PER_PROVIDER + MAX_CROSS_PROVIDER_ATTEMPTS);
+    return attempts;
   });
 
 /** (provider, model) attempts: the preferred provider's models first, then the first model of other installed providers. */

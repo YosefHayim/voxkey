@@ -127,7 +127,7 @@ Stored in `~/.voxkey/config.json`. Names are the kebab-case form of the JSON key
 | `refine-effort` | unset | Reasoning effort for providers that support it. Unset: low, so dictation refine stays fast. |
 | `refine-press-enter` | `false` | Press Enter after dictated text (refined or not) is typed at the caret. |
 | `refine-send-to` | `"caret"` | Where refined dictation goes: caret (the focused input), cmux-new (a new focused cmux workspace), or cmux-resume (the focused cmux surface). |
-| `refine-cmux-command` | `""` | Shell command run in the new cmux workspace for cmux-new. Placeholders: {{prompt_file}}, {{prompt}} (shell-quoted), {{cwd}}. Empty pastes the text only. |
+| `refine-cmux-command` | `""` | Shell command run in the new cmux workspace for cmux-new. Placeholders, each replaced by one shell-quoted word: {{prompt_file}}, {{prompt}}, {{cwd}}. Empty pastes the text only. |
 | `refine-cmux-press-enter` | `false` | Press Enter after sending refined text into cmux (cmux-resume, or cmux-new without a command). |
 
 ## Environment variables

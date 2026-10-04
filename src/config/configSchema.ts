@@ -141,7 +141,7 @@ export const configSchema = Schema.Struct({
   refineCmuxCommand: withDefault(trimmedText, "").annotations({
     title: "refine cmux command",
     description:
-      "Shell command run in the new cmux workspace for cmux-new. Placeholders: {{prompt_file}}, {{prompt}} (shell-quoted), {{cwd}}. Empty pastes the text only.",
+      "Shell command run in the new cmux workspace for cmux-new. Placeholders, each replaced by one shell-quoted word: {{prompt_file}}, {{prompt}}, {{cwd}}. Empty pastes the text only.",
   }),
   refineCmuxPressEnter: withDefault(Schema.Boolean, false).annotations({
     title: "refine cmux press Enter",

@@ -47,8 +47,11 @@ const MODEL_UNAVAILABLE_MARKERS = [
   "model_not_supported",
 ];
 
+// Error phrases only: a refined prompt about a budget, a billing page, a disk quota, or RPM is a real prompt.
 const QUOTA_OR_LIMIT_MARKERS = [
-  "quota",
+  "quota exceeded",
+  "quota_exceeded",
+  "resource_exhausted",
   "rate limit",
   "rate_limit",
   "ratelimit",
@@ -63,19 +66,21 @@ const QUOTA_OR_LIMIT_MARKERS = [
   "usage_limit",
   "insufficient_quota",
   "exceeded your current quota",
-  "billing",
+  "billing details",
+  "billing_hard_limit",
+  "billing hard limit",
   "limit reached",
   "tokens per min",
   "requests per min",
-  "tpm",
-  "rpm",
   "out of credits",
   "requires more credits",
   "can only afford",
   "openrouter.ai/settings/credits",
   "payment required",
   "spending limit",
-  "budget",
+  "budget exceeded",
+  "budget has been exceeded",
+  "exceeded your budget",
   "credit balance",
   "insufficient credits",
 ];
@@ -141,7 +146,10 @@ const LITERAL_PATTERNS = [
   new RegExp(`${NOT_WORD_CHARACTER_BEFORE}(?:'[^'\\n]+'|"[^"\\n]+")`, "gu"),
 ];
 
-/** Code, URLs, paths, and quoted text in the draft, each counted once (earlier patterns win overlaps). */
+/**
+ * Code, URLs, paths, and quoted text in the draft, each counted once, in pattern order. Of two overlapping matches
+ * the longer one wins (earlier patterns on a tie), so a quote that contains a URL or a path is protected whole.
+ */
 export const promptLiterals = (text: string): ReadonlyArray<string> => {
   const candidates = LITERAL_PATTERNS.flatMap((pattern) =>
     [...text.matchAll(pattern)].map((match) => ({
@@ -150,13 +158,14 @@ export const promptLiterals = (text: string): ReadonlyArray<string> => {
       literal: match[0],
     })),
   );
+  const longestFirst = [...candidates].sort((left, right) => right.end - right.start - (left.end - left.start));
   const kept: Array<(typeof candidates)[number]> = [];
-  for (const candidate of candidates) {
+  for (const candidate of longestFirst) {
     if (!kept.some((taken) => candidate.start < taken.end && taken.start < candidate.end)) {
       kept.push(candidate);
     }
   }
-  return kept.map((candidate) => candidate.literal);
+  return candidates.filter((candidate) => kept.includes(candidate)).map((candidate) => candidate.literal);
 };
 
 export class RefineReplyRejected extends Schema.TaggedError<RefineReplyRejected>()("RefineReplyRejected", {

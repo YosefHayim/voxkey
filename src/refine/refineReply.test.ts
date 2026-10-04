@@ -26,6 +26,16 @@ const verdictRows: ReadonlyArray<readonly [string, (text: string) => boolean, st
   ["quota", isQuotaOrLimitError, "ERROR: exceeded your current quota / rate_limit 429", true],
   ["quota", isQuotaOrLimitError, "can only afford 100 tokens", true],
   ["quota", isQuotaOrLimitError, "connection refused", false],
+  ["quota", isQuotaOrLimitError, "Budget has been exceeded! Current cost: 5.2, Max budget: 5.0", true],
+  ["quota", isQuotaOrLimitError, "You exceeded your current quota, please check your plan and billing details.", true],
+  ["quota", isQuotaOrLimitError, "Rate limit reached for gpt-4 on tokens per min (TPM): Limit 10000", true],
+  ["quota", isQuotaOrLimitError, "Quota exceeded for quota metric 'Generate Content API requests per minute'", true],
+  [
+    "quota",
+    isQuotaOrLimitError,
+    "Set the monthly budget, fix the billing page, and show the disk quota on the RPM and TPM charts.",
+    false,
+  ],
   ["auth", looksLikeAuthFailure, "No API key found for the selected model.\nUse /login", true],
   [
     "failed output",
@@ -74,6 +84,14 @@ describe("refine reply checks", () => {
       "'quoted'",
     ]);
     expect(promptLiterals("word/like and abc/def/ghi")).toEqual(["word/like", "abc/def/ghi"]);
+  });
+
+  it("protects a quote that contains a URL or a path as a whole, so the model cannot reword it", () => {
+    const draft = 'reply with "see https://x.dev/docs for details" exactly';
+    expect(promptLiterals(draft)).toEqual(['"see https://x.dev/docs for details"']);
+
+    const reworded = checkRefinedPrompt({ draft, refined: 'Reply with "read https://x.dev/docs for details".' });
+    expect(Either.isLeft(reworded) && reworded.left.reason).toBe("droppedLiteral");
   });
 });
 

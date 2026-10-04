@@ -82,20 +82,28 @@ export const showAlert = (request: { readonly title: string; readonly message: s
     timeoutMs: 60_000,
   }).pipe(Effect.ignore);
 
-/** Model IDs offered for one discovered provider, the preferred one first; Codex adds its cached and curated lists. */
+/**
+ * Model IDs offered for one discovered provider; Codex adds its cached and curated lists. The preferred model and
+ * the saved pick come first only when they belong to this provider, so switching provider never offers (or saves)
+ * another provider's model.
+ */
 export const pickerModels = (request: {
   readonly provider: DiscoveredProvider["id"];
   readonly providers: ReadonlyArray<DiscoveredProvider>;
-  readonly preferred: string;
+  readonly preferred: { readonly provider: string; readonly model: string };
 }): ReadonlyArray<string> => {
   const listed = request.providers.find((provider) => provider.id === request.provider)?.models || [];
+  const preferred = request.preferred.provider === request.provider ? request.preferred.model : "";
   if (request.provider !== "codex") {
-    return dedupe([request.preferred, ...listed]);
+    return dedupe([preferred, ...listed]);
   }
 
-  const saved = Option.match(readSavedChoice(), { onNone: () => "", onSome: (choice) => choice.model });
+  const saved = Option.match(
+    Option.filter(readSavedChoice(), (choice) => choice.provider === "codex"),
+    { onNone: () => "", onSome: (choice) => choice.model },
+  );
   return dedupe([
-    request.preferred,
+    preferred,
     codexLastGoodModel(),
     saved,
     ...listed,
@@ -143,12 +151,16 @@ export const pickRefineTargetWithDialogs = (request: {
       return Option.none();
     }
 
-    const models = pickerModels({ provider: provider.value.id, providers, preferred: request.preferredModel });
+    const models = pickerModels({
+      provider: provider.value.id,
+      providers,
+      preferred: { provider: request.preferredProvider, model: request.preferredModel },
+    });
     const model = yield* chooseFromList({
       title: "voxkey refine",
       prompt: `Model for ${provider.value.id}:`,
       items: request.offerSkip ? [...models, SKIP_REFINE_LABEL] : models,
-      defaultItem: request.preferredModel,
+      defaultItem: models[0] || "",
     });
     if (Option.isNone(model) || model.value === SKIP_REFINE_LABEL || !provider.value.effort) {
       return Option.map(model, (chosen) => ({ provider: provider.value.id, model: chosen, effort: "" }));

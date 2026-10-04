@@ -34,7 +34,7 @@ const refineOptions = {
     Options.optional,
   ),
   cmuxCommand: Options.text("cmux-command").pipe(
-    Options.withDescription("Command template for cmux-new ({{prompt_file}}, {{prompt}}, {{cwd}})"),
+    Options.withDescription("Command template for cmux-new ({{prompt_file}}, {{prompt}}, {{cwd}}, each shell-quoted)"),
     Options.optional,
   ),
   pressEnter: Options.boolean("press-enter").pipe(Options.withDescription("Press Enter after sending to cmux")),

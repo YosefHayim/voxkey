@@ -6,7 +6,7 @@ import path from "node:path";
 import { Effect, Option, Schema } from "effect";
 
 import { readJsonFile, readTextIfReadable } from "../state/stateFiles.js";
-import { dedupe, findCli, findFirstCli, runCliLines } from "./agentCli.js";
+import { dedupe, findFirstCli, runCliLines } from "./agentCli.js";
 import { codexLastGoodModel } from "./refineChoices.js";
 
 export const providerIdSchema = Schema.Literal("codex", "claude", "gemini", "grok", "ollama", "opencode", "pi");
@@ -148,23 +148,23 @@ const agyModelTokens = (lines: ReadonlyArray<string>): ReadonlyArray<string> =>
     .map((line) => (unglueLabel(line).split(/\s+/u)[0] || "").replace(/^[()[\],]+|[()[\],]+$/gu, ""))
     .filter((token) => /^(?:gemini-|claude-|gpt-)/u.test(token));
 
+// Models of the CLI refine runs (gemini before agy): agy's list also holds Claude and GPT IDs that gemini rejects.
 const listGeminiModels = Effect.gen(function* () {
-  const agy = findCli("agy");
-  if (Option.isSome(agy)) {
-    const found = agyModelTokens(yield* listLines({ executable: agy.value, args: ["models"] }));
+  const cli = findFirstCli(["gemini", "agy"]);
+  if (Option.isNone(cli)) {
+    return GEMINI_FALLBACK;
+  }
+
+  if (cli.value.name === "agy") {
+    const found = agyModelTokens(yield* listLines({ executable: cli.value.path, args: ["models"] }));
     if (found.length > 0) {
       return dedupe(found).slice(0, 80);
     }
   }
 
-  for (const binary of ["gemini", "agy"]) {
-    const help = yield* runCliLines({ executable: binary, args: ["--help"], timeoutMs: HELP_TIMEOUT_MS });
-    const found = help.flatMap((line) => (line.match(/gemini-[\w.-]+/gu) || []).map(unglueLabel));
-    if (found.length > 0) {
-      return dedupe(found).slice(0, 80);
-    }
-  }
-  return GEMINI_FALLBACK;
+  const help = yield* runCliLines({ executable: cli.value.path, args: ["--help"], timeoutMs: HELP_TIMEOUT_MS });
+  const found = help.flatMap((line) => (line.match(/gemini-[\w.-]+/gu) || []).map(unglueLabel));
+  return found.length > 0 ? dedupe(found).slice(0, 80) : GEMINI_FALLBACK;
 });
 
 const grokModelTokens = (lines: ReadonlyArray<string>): ReadonlyArray<string> => {
@@ -243,17 +243,25 @@ const piModelTokens = (lines: ReadonlyArray<string>): ReadonlyArray<string> =>
       return isModelRow ? [`${provider}/${model}`] : [];
     });
 
-/** provider/model IDs from the `pi --list-models` table ("openai-codex  gpt-5.4-mini  272K …"). */
-const listPiModels = Effect.map(listLines({ executable: "pi", args: ["--list-models"] }), (lines) => {
-  if (containsAny(lines.join("\n"), ["no models available", "no api key", "use /login", "not logged in"])) {
-    return ["default"];
-  }
+/** provider/model IDs from the `pi --list-models` table ("openai-codex  gpt-5.4-mini  272K …"), from pi or pie. */
+const listPiModels = Effect.map(
+  Effect.suspend(() =>
+    listLines({
+      executable: Option.match(findFirstCli(["pi", "pie"]), { onNone: () => "pi", onSome: (found) => found.path }),
+      args: ["--list-models"],
+    }),
+  ),
+  (lines) => {
+    if (containsAny(lines.join("\n"), ["no models available", "no api key", "use /login", "not logged in"])) {
+      return ["default"];
+    }
 
-  const ranked = [...dedupe(piModelTokens(lines))].sort(
-    (left, right) => piRank(left) - piRank(right) || left.localeCompare(right),
-  );
-  return ranked.length > 0 ? ranked.slice(0, 80) : ["default"];
-});
+    const ranked = [...dedupe(piModelTokens(lines))].sort(
+      (left, right) => piRank(left) - piRank(right) || left.localeCompare(right),
+    );
+    return ranked.length > 0 ? ranked.slice(0, 80) : ["default"];
+  },
+);
 
 type ProviderSpec = {
   readonly id: ProviderId;
