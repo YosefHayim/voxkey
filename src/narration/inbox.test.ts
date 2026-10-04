@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Effect, Option } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { focusFrom } from "./cmuxFocus.js";
 import {
@@ -38,11 +38,11 @@ let home = "";
 beforeEach(() => {
   mkdirSync(scratchRoot, { recursive: true });
   home = mkdtempSync(path.join(scratchRoot, "inbox-"));
-  process.env.VOXKEY_HOME = home;
+  vi.stubEnv("VOXKEY_HOME", home);
 });
 
 afterEach(() => {
-  delete process.env.VOXKEY_HOME;
+  vi.unstubAllEnvs();
   rmSync(home, { recursive: true, force: true });
 });
 

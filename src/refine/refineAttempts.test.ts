@@ -1,9 +1,9 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, type PathLike, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Effect, Exit } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type DiscoveredProvider, discoverProviders } from "./providerModels.js";
 import { attemptQueue, codexModelCandidates, refinePrompt, shouldRotate } from "./refineAttempts.js";
@@ -11,14 +11,29 @@ import { codexFailedModels } from "./refineChoices.js";
 import { pickerModels } from "./refinePicker.js";
 import { refineWithProvider } from "./refineProviders.js";
 
+// findCli also searches /usr/local/bin and /opt/homebrew/bin, outside the fake PATH. A CLI installed there on this
+// Mac (a real `pi`, say) stays invisible, so no test finds it in place of a fake or ever runs it.
+vi.mock("node:fs", async (importOriginal) => {
+  const fs = await importOriginal<typeof import("node:fs")>();
+  const isHostBin = (file: PathLike) =>
+    ["/usr/local/bin/", "/opt/homebrew/bin/"].some((folder) => String(file).startsWith(folder));
+  return {
+    ...fs,
+    accessSync: (file: PathLike, mode?: number) => {
+      if (isHostBin(file)) {
+        throw new Error(`${String(file)} is hidden from the refine tests`);
+      }
+      fs.accessSync(file, mode);
+    },
+  };
+});
+
 const scratchRoot = fileURLToPath(new URL("../../.scratch/", import.meta.url));
 
 const PROVIDER_BINARIES = ["codex", "claude", "gemini", "agy", "grok", "agent", "ollama", "opencode", "pi", "pie"];
 
 let home = "";
 let bin = "";
-const savedPath = process.env.PATH;
-const savedHome = process.env.HOME;
 
 // Every provider binary gets a fake first on PATH, so no test can reach a real agent CLI.
 const writeFakeCli = (name: string, script: string) => {
@@ -35,15 +50,13 @@ beforeEach(() => {
   for (const name of PROVIDER_BINARIES) {
     writeFakeCli(name, "exit 0");
   }
-  process.env.HOME = home;
-  process.env.VOXKEY_HOME = path.join(home, ".voxkey");
-  process.env.PATH = `${bin}:/usr/bin:/bin`;
+  vi.stubEnv("HOME", home);
+  vi.stubEnv("VOXKEY_HOME", path.join(home, ".voxkey"));
+  vi.stubEnv("PATH", `${bin}:/usr/bin:/bin`);
 });
 
 afterEach(() => {
-  process.env.PATH = savedPath;
-  process.env.HOME = savedHome;
-  delete process.env.VOXKEY_HOME;
+  vi.unstubAllEnvs();
   rmSync(home, { recursive: true, force: true });
 });
 

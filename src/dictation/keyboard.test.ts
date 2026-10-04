@@ -7,8 +7,9 @@ describe("utf16Units", () => {
     expect([...utf16Units("a😀")]).toEqual([0x61, 0xd83d, 0xde00]);
   });
 
-  it("posts every unit of every chunk", () => {
+  it("never splits a surrogate pair across chunks, and posts every unit of every chunk", () => {
     const text = `${"x".repeat(19)}😀 done`;
+    expect(unicodeChunks(text)).toEqual(["x".repeat(19), "😀 done"]);
     expect(unicodeChunks(text).flatMap((chunk) => [...utf16Units(chunk)])).toEqual([...utf16Units(text)]);
   });
 });

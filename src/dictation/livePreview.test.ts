@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Effect, Option } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeStatusWriter } from "../worker/workerStatus.js";
 import { captionLoop, makeLiveCaption } from "./livePreview.js";
@@ -13,20 +13,16 @@ import type { Transcriber } from "./transcriber.js";
 const scratchRoot = fileURLToPath(new URL("../../.scratch/", import.meta.url));
 
 let home = "";
-const inheritedConfigFile = process.env.VOXKEY_CONFIG_FILE;
 
 beforeEach(() => {
   mkdirSync(scratchRoot, { recursive: true });
   home = mkdtempSync(path.join(scratchRoot, "caption-"));
-  process.env.VOXKEY_HOME = home;
-  delete process.env.VOXKEY_CONFIG_FILE;
+  vi.stubEnv("VOXKEY_HOME", home);
+  vi.stubEnv("VOXKEY_CONFIG_FILE", undefined);
 });
 
 afterEach(() => {
-  delete process.env.VOXKEY_HOME;
-  if (inheritedConfigFile !== undefined) {
-    process.env.VOXKEY_CONFIG_FILE = inheritedConfigFile;
-  }
+  vi.unstubAllEnvs();
   rmSync(home, { recursive: true, force: true });
 });
 

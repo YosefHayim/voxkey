@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Effect, Option } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { makeStatusWriter } from "../worker/workerStatus.js";
 import { startDictationQueue } from "./dictationQueue.js";
@@ -14,7 +14,6 @@ const scratchRoot = fileURLToPath(new URL("../../.scratch/", import.meta.url));
 
 let home = "";
 let cmuxLog = "";
-const saved = { path: process.env.PATH, configFile: process.env.VOXKEY_CONFIG_FILE };
 
 // A fake cmux first on PATH records any call, so the test never drives the real cmux app.
 beforeEach(() => {
@@ -25,18 +24,14 @@ beforeEach(() => {
   cmuxLog = path.join(home, "cmux.log");
   writeFileSync(path.join(bin, "cmux"), `#!/bin/sh\necho "$@" >> '${cmuxLog}'\necho '{"surface_id":"s1"}'\n`);
   chmodSync(path.join(bin, "cmux"), 0o755);
-  process.env.PATH = `${bin}:/usr/bin:/bin`;
-  process.env.VOXKEY_HOME = home;
-  delete process.env.VOXKEY_CONFIG_FILE;
+  vi.stubEnv("PATH", `${bin}:/usr/bin:/bin`);
+  vi.stubEnv("VOXKEY_HOME", home);
+  vi.stubEnv("VOXKEY_CONFIG_FILE", undefined);
   writeFileSync(path.join(home, "config.json"), JSON.stringify({ refineMode: "dictation", refineSendTo: "cmux-new" }));
 });
 
 afterEach(() => {
-  process.env.PATH = saved.path;
-  if (saved.configFile !== undefined) {
-    process.env.VOXKEY_CONFIG_FILE = saved.configFile;
-  }
-  delete process.env.VOXKEY_HOME;
+  vi.unstubAllEnvs();
   rmSync(home, { recursive: true, force: true });
 });
 

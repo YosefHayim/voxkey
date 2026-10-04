@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { isWorkerRunning, stopWorkers } from "./workerProcesses.js";
 
@@ -18,7 +18,7 @@ const started: Array<ChildProcess> = [];
 beforeEach(() => {
   mkdirSync(scratchRoot, { recursive: true });
   home = mkdtempSync(path.join(scratchRoot, "workers-"));
-  process.env.VOXKEY_HOME = home;
+  vi.stubEnv("VOXKEY_HOME", home);
 });
 
 // Only processes this test started are ever signalled, here or by voxkey.
@@ -26,7 +26,7 @@ afterEach(() => {
   for (const child of started.splice(0)) {
     child.kill("SIGKILL");
   }
-  delete process.env.VOXKEY_HOME;
+  vi.unstubAllEnvs();
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -79,7 +79,7 @@ describe("worker pid files", () => {
     }
     const narration = await startSleeper(["worker", "narration"]);
     writePidFile("narration.pid", narration);
-    await eventually(() => isWorkerRunning("narration"));
+    expect(await eventually(() => isWorkerRunning("narration"))).toBe(true);
 
     await Effect.runPromise(stopWorkers);
 

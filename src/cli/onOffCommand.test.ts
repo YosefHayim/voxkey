@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
 import {
-  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -104,14 +105,15 @@ describe("voxkey on --hooks-only and voxkey off in a scratch HOME", () => {
   });
 
   it("leaves a settings file it cannot read exactly as it is, instead of replacing it", () => {
+    // A symlink to itself cannot be read by anyone; a mode-000 file can still be read by root.
     const settings = path.join(home, ".claude", "settings.json");
-    chmodSync(settings, 0o000);
+    rmSync(settings);
+    symlinkSync("settings.json", settings);
 
     const on = voxkey(["on", "--hooks-only"]);
-    chmodSync(settings, 0o600);
     expect(on.status).toBe(0);
     expect(on.stdout).toContain("could not be read");
-    expect(read(".claude/settings.json")).toBe(claudeSettings);
+    expect(readlinkSync(settings)).toBe("settings.json");
     expect(readdirSync(path.join(home, ".voxkey", "backups"))).toEqual([expect.stringMatching(/^codex-/u)]);
   });
 

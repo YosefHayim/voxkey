@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { dictationOwnsAudio, makeStatusWriter } from "./workerStatus.js";
 
@@ -13,11 +13,11 @@ let home = "";
 beforeEach(() => {
   mkdirSync(scratchRoot, { recursive: true });
   home = mkdtempSync(path.join(scratchRoot, "status-"));
-  process.env.VOXKEY_HOME = home;
+  vi.stubEnv("VOXKEY_HOME", home);
 });
 
 afterEach(() => {
-  delete process.env.VOXKEY_HOME;
+  vi.unstubAllEnvs();
   rmSync(home, { recursive: true, force: true });
 });
 
