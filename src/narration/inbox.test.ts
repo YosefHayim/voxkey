@@ -56,9 +56,7 @@ const reply = (agentReplyId: string): QueuedReply => ({
 const cmuxOrigin = (surfaceId: string) =>
   ({ kind: "cmux", socketPath: path.join(home, "no-cmux.sock"), workspaceId: "W1", surfaceId }) as const;
 
-const speaking = { narrationMode: "auto", narrationMuted: false } as const;
-
-const claim = (config: Parameters<typeof claimNextReply>[0] = speaking) => Effect.runPromise(claimNextReply(config));
+const claim = (mode: "auto" | "immediate" | "off" = "auto") => Effect.runPromise(claimNextReply(mode));
 
 const inboxNames = () => (existsSync(path.join(home, "inbox")) ? readdirSync(path.join(home, "inbox")) : []);
 
@@ -132,17 +130,10 @@ describe("inbox", () => {
     expect(inboxNames().filter((name) => name.endsWith(".json"))).toEqual([]);
   });
 
-  it("empties the queue while muted or off, so unmuting reads no backlog", async () => {
-    queueReply({ markdown: "missed while muted", source: "grok", agentReplyId: "", origin: { kind: "terminal" } });
-    expect(Option.isNone(await claim({ ...speaking, narrationMuted: true }))).toBe(true);
-    expect(inboxNames()).toEqual([]);
-
+  it("empties the queue when narration is off", async () => {
     queueReply({ markdown: "missed while off", source: "grok", agentReplyId: "", origin: { kind: "terminal" } });
-    expect(Option.isNone(await claim({ ...speaking, narrationMode: "off" }))).toBe(true);
+    expect(Option.isNone(await claim("off"))).toBe(true);
     expect(inboxNames()).toEqual([]);
-
-    queueReply({ markdown: "heard", source: "grok", agentReplyId: "", origin: { kind: "terminal" } });
-    expect(Option.getOrThrow(await claim()).reply.markdown).toBe("heard");
   });
 
   it("deletes unreadable and expired files and moves a failed reply aside", async () => {

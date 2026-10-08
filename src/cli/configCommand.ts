@@ -18,7 +18,7 @@ import { saveRefineChoice } from "../refine/refineChoices.js";
 import { pickerModels, pickRefineTargetWithDialogs, type RefinePick } from "../refine/refinePicker.js";
 import { isWorkerRunning, startNarrationWorker, stopNarrationSpeech } from "../worker/workerProcesses.js";
 import { CliUsageError } from "./cliUsageError.js";
-import { prepareModels, restartWorkers } from "./onCommand.js";
+import { describeNarration, prepareModels, restartWorkers } from "./onCommand.js";
 import * as TerminalUI from "./TerminalUI.js";
 
 type ConfigSetting = (typeof configSettings)[number];
@@ -80,7 +80,7 @@ const applyChange = (previous: Config, next: Config) =>
     if (previous.narrationMode === "off" && next.narrationMode !== "off" && dictationRunning) {
       yield* prepareModels(next);
       startNarrationWorker();
-      yield* TerminalUI.detail("Narration started.");
+      yield* TerminalUI.detail(`Narration started. ${describeNarration(next)}`);
       return;
     }
 

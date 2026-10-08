@@ -170,7 +170,7 @@ voxkey is a clean break: it does not read the old config file. Re-create your se
 | `voice off`, `stt off` | `voxkey off` |
 | `voice status` | `voxkey status` |
 | `voice speak`, `voice refine`, `voice devin` | `voxkey speak`, `voxkey refine`, `voxkey devin` |
-| `tts on` / `tts off` | `voxkey config set narration-mode auto` / `off` |
+| `tts on` / `tts off` | `voxkey config set narration-muted false` / `true` |
 | `stt keep-listening <s>` | `voxkey config set dictation-keep-listening-seconds <s>` |
 | `stt lang <en\|he>` | `voxkey config set dictation-language <en\|he>` |
 | `config show` / `set` / `reset` / `pick-refine` | `voxkey config list` / `set` / `unset` / `pick-refine` |

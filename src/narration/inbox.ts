@@ -203,14 +203,12 @@ const claimFile = (file: string): string | undefined => {
 
 /**
  * Claim the next reply to speak by renaming it to `.speaking`, so it cannot be picked twice. A reply
- * still waiting for its Cmux surface stays queued; with narration off or muted the inbox is emptied.
+ * still waiting for its Cmux surface stays queued; with narration off the inbox is emptied.
  */
-export const claimNextReply = (
-  config: Pick<Config, "narrationMode" | "narrationMuted">,
-): Effect.Effect<Option.Option<PendingReply>> =>
+export const claimNextReply = (mode: Config["narrationMode"]): Effect.Effect<Option.Option<PendingReply>> =>
   Effect.gen(function* () {
     const pending = pendingReplies();
-    if (config.narrationMode === "off" || config.narrationMuted) {
+    if (mode === "off") {
       removeInboxFiles([".json"]);
       return Option.none();
     }
@@ -222,7 +220,7 @@ export const claimNextReply = (
         continue;
       }
 
-      if (!(yield* speaksNow({ mode: config.narrationMode, reply: candidate.reply }))) {
+      if (!(yield* speaksNow({ mode, reply: candidate.reply }))) {
         continue;
       }
 

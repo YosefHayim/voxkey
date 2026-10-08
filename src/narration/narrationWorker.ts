@@ -20,11 +20,17 @@ const STOP_SPEECH_SIGNAL = "SIGUSR2";
 const speakNextReply = (engine: SupertonicEngine, player: ReturnType<typeof makeSpeechPlayer>) =>
   Effect.gen(function* () {
     const config = yield* readConfigOrDefaults;
+    // Before the dictation wait, so a reply that came in while muted is never kept for after an unmute.
+    if (config.narrationMuted) {
+      removeInboxFiles([".json"]);
+      return "wait";
+    }
+
     if (dictationOwnsAudio()) {
       return "wait";
     }
 
-    const next = yield* claimNextReply(config);
+    const next = yield* claimNextReply(config.narrationMode);
     if (Option.isNone(next)) {
       return "idle";
     }

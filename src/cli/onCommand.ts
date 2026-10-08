@@ -93,7 +93,7 @@ const describeRefine = (config: Config) => {
   return `${config.refineProvider}/${model}${effort} → ${config.refineSendTo}${enter}`;
 };
 
-const describeNarration = (config: Config) => {
+export const describeNarration = (config: Config) => {
   if (config.narrationMode === "off") {
     return "Narration: off (turn on with `voxkey config set narration-mode auto`).";
   }
