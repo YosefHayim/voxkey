@@ -68,6 +68,10 @@ const toggleNarrationMute = (status: StatusWriter) =>
     const config = yield* readConfig;
     const muted = !config.narrationMuted;
     yield* saveConfig({ ...config, narrationMuted: muted });
+    // A reply can be mid-claim, with no .speaking file yet, so the double tap did not count as stopping speech.
+    if (muted) {
+      stopNarrationSpeech();
+    }
     status.write("inactive", muted ? "Narration muted (double-tap Shift to unmute)" : "Narration unmuted");
   }).pipe(Effect.catchAll((failure) => Effect.sync(() => status.write("inactive", `Mute failed: ${failure.message}`))));
 
