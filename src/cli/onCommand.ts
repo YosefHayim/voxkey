@@ -93,14 +93,19 @@ const describeRefine = (config: Config) => {
   return `${config.refineProvider}/${model}${effort} → ${config.refineSendTo}${enter}`;
 };
 
+const describeNarration = (config: Config) => {
+  if (config.narrationMode === "off") {
+    return "Narration: off (turn on with `voxkey config set narration-mode auto`).";
+  }
+
+  const muted = config.narrationMuted ? ", muted (unmute with `voxkey config set narration-muted false`)" : "";
+  return `Narration: ${config.narrationMode}, voice ${config.narrationVoice}${muted}.`;
+};
+
 export const showOnSummary = (config: Config) =>
   Effect.gen(function* () {
     yield* TerminalUI.detail(HOLD_TO_DICTATE);
-    yield* TerminalUI.detail(
-      config.narrationMode === "off"
-        ? "Narration: off (turn on with `voxkey config set narration-mode auto`)."
-        : `Narration: ${config.narrationMode}, voice ${config.narrationVoice}.`,
-    );
+    yield* TerminalUI.detail(describeNarration(config));
     if (config.refineMode === "clipboard" || config.refineMode === "both") {
       yield* TerminalUI.detail("Double-tap Shift to refine the copied prompt, then press ⌘V.");
     }

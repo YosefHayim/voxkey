@@ -42,23 +42,58 @@ describe("voxkey config errors", () => {
   });
 });
 
+// A stand-in narration worker that writes "stopped" to the marker file when it gets the stop-speech signal.
+const startStandInNarrationWorker = async (marker: string) => {
+  const listener = `process.on("SIGUSR2", () => { require("node:fs").writeFileSync(process.argv[1], "stopped"); process.exit(0); }); setInterval(() => {}, 1 << 30);`;
+  sleeper = spawn(process.execPath, ["-e", listener, marker, "worker", "narration"], { stdio: "ignore" });
+  await new Promise((resolve) => sleeper?.once("spawn", resolve));
+  mkdirSync(path.join(home, ".voxkey"), { recursive: true });
+  writeFileSync(path.join(home, ".voxkey", "narration.pid"), String(sleeper.pid));
+};
+
+const speechStopped = async (marker: string) => {
+  const deadline = Date.now() + 3_000;
+  while (!existsSync(marker) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return existsSync(marker) && readFileSync(marker, "utf8") === "stopped";
+};
+
+const narrationMuted = () => JSON.parse(voxkey(["status", "--json"]).stdout).narration.muted;
+
 describe("voxkey config set narration-mode off", () => {
   it("stops the reply being read now instead of after it ends", async () => {
     const marker = path.join(home, "stopped");
-    const listener = `process.on("SIGUSR2", () => { require("node:fs").writeFileSync(process.argv[1], "stopped"); process.exit(0); }); setInterval(() => {}, 1 << 30);`;
-    sleeper = spawn(process.execPath, ["-e", listener, marker, "worker", "narration"], { stdio: "ignore" });
-    await new Promise((resolve) => sleeper?.once("spawn", resolve));
-    mkdirSync(path.join(home, ".voxkey"));
-    writeFileSync(path.join(home, ".voxkey", "narration.pid"), String(sleeper.pid));
+    await startStandInNarrationWorker(marker);
 
     const set = voxkey(["config", "set", "narration-mode", "off"]);
 
     expect(set.status).toBe(0);
     expect(set.stdout).toContain("Narration stops");
-    const deadline = Date.now() + 3_000;
-    while (!existsSync(marker) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    expect(existsSync(marker) && readFileSync(marker, "utf8")).toBe("stopped");
+    expect(await speechStopped(marker)).toBe(true);
+  });
+});
+
+describe("voxkey narration-muted", () => {
+  it("starts muted, and config set narration-muted false unmutes", () => {
+    expect(narrationMuted()).toBe(true);
+
+    const set = voxkey(["config", "set", "narration-muted", "false"]);
+
+    expect(set.status).toBe(0);
+    expect(set.stdout).toContain("narration-muted = false");
+    expect(narrationMuted()).toBe(false);
+  });
+
+  it("stops the reply being read now when muted again", async () => {
+    const marker = path.join(home, "stopped");
+    await startStandInNarrationWorker(marker);
+    writeFileSync(path.join(home, ".voxkey", "config.json"), JSON.stringify({ narrationMuted: false }));
+
+    const set = voxkey(["config", "set", "narration-muted", "true"]);
+
+    expect(set.status).toBe(0);
+    expect(set.stdout).toContain("Narration muted");
+    expect(await speechStopped(marker)).toBe(true);
   });
 });

@@ -91,6 +91,12 @@ const applyChange = (previous: Config, next: Config) =>
       return;
     }
 
+    if (!previous.narrationMuted && next.narrationMuted) {
+      stopNarrationSpeech();
+      yield* TerminalUI.detail("Narration muted; the reply being read stops now.");
+      return;
+    }
+
     yield* TerminalUI.detail("Applies from the next dictation or reply.");
   });
 

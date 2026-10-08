@@ -10,13 +10,7 @@ import path from "node:path";
 import { Effect, Option, Schema } from "effect";
 
 import type { Config } from "../config/configSchema.js";
-import {
-  makePrivateFolder,
-  readJsonFile,
-  removeIfPresent,
-  touchFile,
-  writeJsonAtomically,
-} from "../state/stateFiles.js";
+import { makePrivateFolder, readJsonFile, removeIfPresent, writeJsonAtomically } from "../state/stateFiles.js";
 import { stateFile, stateFolder } from "../state/statePaths.js";
 import { type CmuxFocus, cmuxFocus } from "./cmuxFocus.js";
 
@@ -116,19 +110,6 @@ export const removeInboxFiles = (extensions: ReadonlyArray<".json" | ".speaking"
 /** A claimed reply exists while the narration worker is speaking it. */
 export const isNarrationSpeaking = (): boolean => inboxFiles(".speaking").length > 0;
 
-export const isNarrationMuted = (): boolean => existsSync(stateFile("narration-muted"));
-
-/** Flip the session mute (the inbox is kept, nothing is spoken); returns whether narration is now muted. */
-export const toggleNarrationMute = (): boolean => {
-  const muted = !isNarrationMuted();
-  if (muted) {
-    touchFile(stateFile("narration-muted"));
-  } else {
-    removeIfPresent(stateFile("narration-muted"));
-  }
-  return muted;
-};
-
 const seenKeys = (): ReadonlyMap<string, number> => {
   const now = nowSeconds();
   const saved = Option.getOrElse(readJsonFile({ path: stateFile("seen.json"), schema: seenKeysSchema }), () => ({}));
@@ -222,12 +203,14 @@ const claimFile = (file: string): string | undefined => {
 
 /**
  * Claim the next reply to speak by renaming it to `.speaking`, so it cannot be picked twice. A reply
- * still waiting for its Cmux surface stays queued; with narration off the inbox is emptied.
+ * still waiting for its Cmux surface stays queued; with narration off or muted the inbox is emptied.
  */
-export const claimNextReply = (mode: Config["narrationMode"]): Effect.Effect<Option.Option<PendingReply>> =>
+export const claimNextReply = (
+  config: Pick<Config, "narrationMode" | "narrationMuted">,
+): Effect.Effect<Option.Option<PendingReply>> =>
   Effect.gen(function* () {
     const pending = pendingReplies();
-    if (mode === "off") {
+    if (config.narrationMode === "off" || config.narrationMuted) {
       removeInboxFiles([".json"]);
       return Option.none();
     }
@@ -239,7 +222,7 @@ export const claimNextReply = (mode: Config["narrationMode"]): Effect.Effect<Opt
         continue;
       }
 
-      if (isNarrationMuted() || !(yield* speaksNow({ mode, reply: candidate.reply }))) {
+      if (!(yield* speaksNow({ mode: config.narrationMode, reply: candidate.reply }))) {
         continue;
       }
 

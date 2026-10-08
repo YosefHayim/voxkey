@@ -5,8 +5,8 @@
 
 import { Duration, Effect } from "effect";
 
-import { readConfigOrDefaults } from "../config/configFile.js";
-import { isNarrationSpeaking, queueReply, toggleNarrationMute } from "../narration/inbox.js";
+import { readConfig, readConfigOrDefaults, saveConfig } from "../config/configFile.js";
+import { isNarrationSpeaking, queueReply } from "../narration/inbox.js";
 import { refinePrompt } from "../refine/refineAttempts.js";
 import { appendDictationLog } from "../worker/workerLog.js";
 import { stopNarrationSpeech } from "../worker/workerProcesses.js";
@@ -61,6 +61,15 @@ const refineClipboard = (status: StatusWriter) =>
     Effect.zipRight(Effect.sleep("4 seconds")),
     Effect.zipRight(Effect.sync(() => status.write("inactive", ""))),
   );
+
+/** Double-tap Shift outside clipboard refine mode: flip `narration-muted` in config.json. */
+const toggleNarrationMute = (status: StatusWriter) =>
+  Effect.gen(function* () {
+    const config = yield* readConfig;
+    const muted = !config.narrationMuted;
+    yield* saveConfig({ ...config, narrationMuted: muted });
+    status.write("inactive", muted ? "Narration muted (double-tap Shift to unmute)" : "Narration unmuted");
+  }).pipe(Effect.catchAll((failure) => Effect.sync(() => status.write("inactive", `Mute failed: ${failure.message}`))));
 
 export const makeHoldController = (request: {
   readonly keyboard: Keyboard;
@@ -134,10 +143,7 @@ export const makeHoldController = (request: {
         yield* Effect.forkDaemon(refineClipboard(status));
         return;
       case "toggleMute":
-        status.write(
-          "inactive",
-          toggleNarrationMute() ? "Narration muted (double-tap Shift to unmute)" : "Narration unmuted",
-        );
+        yield* toggleNarrationMute(status);
         return;
     }
   });

@@ -10,7 +10,7 @@ import { ensureSupertonicModels } from "../models/supertonicModels.js";
 import { appendNarrationLog } from "../worker/workerLog.js";
 import { claimWorkerLock, stopRequested } from "../worker/workerProcesses.js";
 import { dictationOwnsAudio } from "../worker/workerStatus.js";
-import { claimNextReply, completeReply, failReply, isNarrationMuted, removeInboxFiles } from "./inbox.js";
+import { claimNextReply, completeReply, failReply, removeInboxFiles } from "./inbox.js";
 import { makeSpeechPlayer, speakMarkdown } from "./speechPlayer.js";
 import { loadSupertonic, type SupertonicEngine } from "./supertonic.js";
 
@@ -24,11 +24,7 @@ const speakNextReply = (engine: SupertonicEngine, player: ReturnType<typeof make
       return "wait";
     }
 
-    if (isNarrationMuted()) {
-      return "wait";
-    }
-
-    const next = yield* claimNextReply(config.narrationMode);
+    const next = yield* claimNextReply(config);
     if (Option.isNone(next)) {
       return "idle";
     }
