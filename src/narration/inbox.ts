@@ -10,13 +10,7 @@ import path from "node:path";
 import { Effect, Option, Schema } from "effect";
 
 import type { Config } from "../config/configSchema.js";
-import {
-  makePrivateFolder,
-  readJsonFile,
-  removeIfPresent,
-  touchFile,
-  writeJsonAtomically,
-} from "../state/stateFiles.js";
+import { makePrivateFolder, readJsonFile, removeIfPresent, writeJsonAtomically } from "../state/stateFiles.js";
 import { stateFile, stateFolder } from "../state/statePaths.js";
 import { type CmuxFocus, cmuxFocus } from "./cmuxFocus.js";
 
@@ -115,19 +109,6 @@ export const removeInboxFiles = (extensions: ReadonlyArray<".json" | ".speaking"
 
 /** A claimed reply exists while the narration worker is speaking it. */
 export const isNarrationSpeaking = (): boolean => inboxFiles(".speaking").length > 0;
-
-export const isNarrationMuted = (): boolean => existsSync(stateFile("narration-muted"));
-
-/** Flip the session mute (the inbox is kept, nothing is spoken); returns whether narration is now muted. */
-export const toggleNarrationMute = (): boolean => {
-  const muted = !isNarrationMuted();
-  if (muted) {
-    touchFile(stateFile("narration-muted"));
-  } else {
-    removeIfPresent(stateFile("narration-muted"));
-  }
-  return muted;
-};
 
 const seenKeys = (): ReadonlyMap<string, number> => {
   const now = nowSeconds();
@@ -239,7 +220,7 @@ export const claimNextReply = (mode: Config["narrationMode"]): Effect.Effect<Opt
         continue;
       }
 
-      if (isNarrationMuted() || !(yield* speaksNow({ mode, reply: candidate.reply }))) {
+      if (!(yield* speaksNow({ mode, reply: candidate.reply }))) {
         continue;
       }
 

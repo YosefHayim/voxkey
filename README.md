@@ -61,7 +61,7 @@ No Homebrew audio tools are needed: the microphone, Whisper, the voices, and the
 | `voxkey refine <prompt> [--speak --provider --model --effort --send-to --cmux-command --press-enter]` | Refine one prompt and print it; `--list-providers` prints the CLIs found as JSON. |
 | `voxkey devin -- <devin arguments>` | Run Devin with its ATIF export and read each finished turn aloud. |
 | `voxkey hotkey-check [--seconds 8]` | Print Shift presses, to check that voxkey can see the keyboard. |
-| `voxkey reset` | Kill every voxkey worker and pill, clear the locks, and unmute. |
+| `voxkey reset` | Kill every voxkey worker and pill and clear the locks. |
 | `voxkey reply --agent <id>` | The agent Stop hook (registered by `voxkey on`). Prints nothing, always exits 0. |
 | `voxkey worker dictation \| narration` | Internal: the background workers. |
 
@@ -86,11 +86,12 @@ Hebrew uses the [ivrit.ai](https://huggingface.co/ivrit-ai/whisper-large-v3-turb
 
 ## Narration
 
-Tap Shift to stop the current reply. Double-tap Shift to mute or unmute narration (or, in clipboard refine mode, to refine the copied prompt). Starting a hold also stops speech.
+Narration starts muted: replies are dropped, not read, until you unmute. Double-tap Shift to unmute or mute again (or, in clipboard refine mode, where double-tap refines the copied prompt, run `voxkey config set narration-muted false`). Tap Shift to stop the current reply. Starting a hold also stops speech.
 
 Inside Cmux each reply is bound to its workspace and surface. In `auto` mode a reply waits until that surface is focused and Cmux is in front; newer replies from the same surface replace older ones; if Cmux does not answer, the reply is spoken at once. `immediate` speaks every reply at once; `off` reads nothing.
 
 ```bash
+voxkey config set narration-muted false
 voxkey config set narration-mode off
 voxkey config set narration-voice M2
 voxkey speak "Release status: **ready**."
@@ -114,6 +115,7 @@ Stored in `~/.voxkey/config.json`. Names are the kebab-case form of the JSON key
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `narration-mode` | `"auto"` | When agent replies are read aloud: auto holds a Cmux reply until its surface is focused and Cmux is in front, and speaks other replies at once; immediate speaks every reply at once; off reads nothing. |
+| `narration-muted` | `true` | Read nothing while true; replies that arrive meanwhile are dropped, not saved for later. Double-tap Shift flips it (outside clipboard refine mode). |
 | `narration-voice` | `"F4"` | Supertonic voice: F1-F5 or M1-M5. |
 | `narration-words-per-minute` | `230` | Speed of read-aloud replies, in words per minute (the voice speed is clamped to 0.7-2.0x). |
 | `dictation-language` | `"en"` | Dictation language: en (whisper.cpp large-v3-turbo) or he (ivrit.ai Hebrew large-v3-turbo). Accepts english, hebrew, ivrit, iw. |
@@ -152,7 +154,7 @@ Everything voxkey writes lives in `~/.voxkey` (or `$VOXKEY_HOME`):
 | `backups/` | A copy of each agent settings file before voxkey edited it. |
 | `refine-choice.json`, `refine-codex-*.txt` | The last refine pick and Codex's working and failing models. |
 | `prompts/`, `audio/`, `devin/` | Refined prompts handed to cmux, narration audio being played, and Devin session exports. |
-| `*.pid`, `*.lock`, `stop`, `narration-muted` | Worker bookkeeping. |
+| `*.pid`, `*.lock`, `stop` | Worker bookkeeping. |
 
 What you dictate and what agents reply stays yours: every file voxkey keeps in `~/.voxkey` that holds it, and every settings backup, is created readable by you alone (mode 0600), in folders only you can open (0700, `~/.voxkey` included). voxkey tightens such a file or folder whenever it finds one looser. A file you ask for elsewhere, like `voxkey speak --output <file>`, keeps your usual permissions, and so does the folder of a `VOXKEY_CONFIG_FILE` you point outside `~/.voxkey`.
 
@@ -168,7 +170,7 @@ voxkey is a clean break: it does not read the old config file. Re-create your se
 | `voice off`, `stt off` | `voxkey off` |
 | `voice status` | `voxkey status` |
 | `voice speak`, `voice refine`, `voice devin` | `voxkey speak`, `voxkey refine`, `voxkey devin` |
-| `tts on` / `tts off` | `voxkey config set narration-mode auto` / `off` |
+| `tts on` / `tts off` | `voxkey config set narration-muted false` / `true` |
 | `stt keep-listening <s>` | `voxkey config set dictation-keep-listening-seconds <s>` |
 | `stt lang <en\|he>` | `voxkey config set dictation-language <en\|he>` |
 | `config show` / `set` / `reset` / `pick-refine` | `voxkey config list` / `set` / `unset` / `pick-refine` |

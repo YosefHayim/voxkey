@@ -80,6 +80,11 @@ export const configSchema = Schema.Struct({
     description:
       "When agent replies are read aloud: auto holds a Cmux reply until its surface is focused and Cmux is in front, and speaks other replies at once; immediate speaks every reply at once; off reads nothing.",
   }),
+  narrationMuted: withDefault(Schema.Boolean, true).annotations({
+    title: "narration muted",
+    description:
+      "Read nothing while true; replies that arrive meanwhile are dropped, not saved for later. Double-tap Shift flips it (outside clipboard refine mode).",
+  }),
   narrationVoice: withDefault(narrationVoiceSchema, "F4").annotations({
     title: "narration voice",
     description: "Supertonic voice: F1-F5 or M1-M5.",

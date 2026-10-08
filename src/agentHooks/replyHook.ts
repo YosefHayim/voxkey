@@ -80,7 +80,10 @@ const queueAgentReply = (agent: AgentId) =>
       return;
     }
 
-    queueReply({ markdown, source: agent, agentReplyId: agentReplyIdOf(input.value), origin: replyOrigin() });
+    // A muted reply is dropped here, but the workers still wake, so dictation comes back after a reboot.
+    if (!config.narrationMuted) {
+      queueReply({ markdown, source: agent, agentReplyId: agentReplyIdOf(input.value), origin: replyOrigin() });
+    }
     wakeWorkers();
   });
 

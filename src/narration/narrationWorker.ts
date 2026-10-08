@@ -10,7 +10,7 @@ import { ensureSupertonicModels } from "../models/supertonicModels.js";
 import { appendNarrationLog } from "../worker/workerLog.js";
 import { claimWorkerLock, stopRequested } from "../worker/workerProcesses.js";
 import { dictationOwnsAudio } from "../worker/workerStatus.js";
-import { claimNextReply, completeReply, failReply, isNarrationMuted, removeInboxFiles } from "./inbox.js";
+import { claimNextReply, completeReply, failReply, removeInboxFiles } from "./inbox.js";
 import { makeSpeechPlayer, speakMarkdown } from "./speechPlayer.js";
 import { loadSupertonic, type SupertonicEngine } from "./supertonic.js";
 
@@ -20,11 +20,13 @@ const STOP_SPEECH_SIGNAL = "SIGUSR2";
 const speakNextReply = (engine: SupertonicEngine, player: ReturnType<typeof makeSpeechPlayer>) =>
   Effect.gen(function* () {
     const config = yield* readConfigOrDefaults;
-    if (dictationOwnsAudio()) {
+    // Before the dictation wait, so a reply that came in while muted is never kept for after an unmute.
+    if (config.narrationMuted) {
+      removeInboxFiles([".json"]);
       return "wait";
     }
 
-    if (isNarrationMuted()) {
+    if (dictationOwnsAudio()) {
       return "wait";
     }
 

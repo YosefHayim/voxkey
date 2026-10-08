@@ -13,7 +13,6 @@ export const stateFileNames = [
   "narration.pid",
   "narration.lock",
   "pill.pid",
-  "narration-muted",
   "stop",
   "dictation.log",
   "dictation-worker.log",

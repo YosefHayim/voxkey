@@ -5,7 +5,6 @@ import { Effect, Option } from "effect";
 
 import { registeredAgents } from "../agentHooks/hookRegistration.js";
 import { readConfigOrDefaults } from "../config/configFile.js";
-import { isNarrationMuted } from "../narration/inbox.js";
 import { configFilePath, voxkeyHome } from "../state/statePaths.js";
 import { isWorkerRunning, readPid } from "../worker/workerProcesses.js";
 import { readWorkerStatus } from "../worker/workerStatus.js";
@@ -48,7 +47,7 @@ const currentStatus = Effect.gen(function* () {
       running: isWorkerRunning("narration"),
       mode: config.narrationMode,
       voice: config.narrationVoice,
-      muted: isNarrationMuted(),
+      muted: config.narrationMuted,
     },
     refine: {
       mode: config.refineMode,

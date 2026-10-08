@@ -63,10 +63,10 @@ voxkey speak $'# Release\n\nThe voice worker is **ready**.\n\n| Item | State |\n
 
 Expect: "Release. The voice worker is ready. Row 1. Item: Voice. State: Ready." in voice F4.
 
-Live, from an agent: ask Claude Code, Codex, or Grok anything short. When the turn ends you should hear the reply.
+Live, from an agent: with a fresh config, `voxkey status` shows "muted" and a finished turn stays silent. Double-tap Shift when nothing is speaking (the pill says "Narration unmuted"), then ask Claude Code, Codex, or Grok anything short. When the turn ends you should hear the reply.
 
 - Tap Shift while it speaks: speech stops at once.
-- Double-tap Shift when nothing is speaking: `voxkey status` shows "muted"; agent replies stay silent. Double-tap again to unmute.
+- Double-tap Shift when nothing is speaking: `voxkey status` shows "muted" again and agent replies stay silent; unmuting does not read the replies that came in meanwhile.
 - Hold Shift to dictate while a reply is being read: the reading stops.
 - `voxkey config set narration-mode off`: replies are no longer read; dictation still works. `voxkey config set narration-mode auto` brings narration back.
 

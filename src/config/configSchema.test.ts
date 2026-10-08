@@ -9,6 +9,7 @@ describe("configSchema", () => {
   it("decodes an empty file to the documented defaults", () => {
     expect(defaultConfig).toEqual({
       narrationMode: "auto",
+      narrationMuted: true,
       narrationVoice: "F4",
       narrationWordsPerMinute: 230,
       dictationLanguage: "en",

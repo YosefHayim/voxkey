@@ -41,9 +41,13 @@ const runHook = (request: {
   readonly agent: string;
   readonly stdin: string;
   readonly narrationMode?: "auto" | "off";
+  readonly narrationMuted?: boolean;
   readonly environment?: Readonly<Record<string, string>>;
 }) => {
-  writeFileSync(path.join(home, "config.json"), JSON.stringify({ narrationMode: request.narrationMode || "auto" }));
+  writeFileSync(
+    path.join(home, "config.json"),
+    JSON.stringify({ narrationMode: request.narrationMode || "auto", narrationMuted: request.narrationMuted === true }),
+  );
   return spawnSync(process.execPath, ["--import", "tsx", mainScript, "reply", "--agent", request.agent], {
     cwd: repositoryRoot,
     input: request.stdin,
@@ -90,6 +94,18 @@ describe("voxkey reply (the agent Stop hook)", () => {
     expect(queued()).toEqual([]);
   });
 
+  it("queues nothing while narration is muted, so unmuting reads no backlog", () => {
+    const execution = runHook({
+      agent: "claude-code",
+      stdin: JSON.stringify({ last_assistant_message: "Missed while muted" }),
+      narrationMuted: true,
+    });
+
+    expect(execution.status).toBe(0);
+    expect(execution.stdout).toBe("");
+    expect(queued()).toEqual([]);
+  });
+
   it("binds a Cmux reply to its surface and never stores the socket capability", () => {
     const execution = runHook({
       agent: "codex",
@@ -132,7 +148,7 @@ describe("voxkey reply (the agent Stop hook)", () => {
   });
 
   it("exits 0 with no output and queues nothing when --agent is unknown, missing, empty, or has extra arguments", () => {
-    writeFileSync(path.join(home, "config.json"), JSON.stringify({ narrationMode: "auto" }));
+    writeFileSync(path.join(home, "config.json"), JSON.stringify({ narrationMode: "auto", narrationMuted: false }));
     const stdin = JSON.stringify({ last_assistant_message: "Should not be queued" });
     for (const args of [
       ["--agent", "nosuch"],
@@ -178,11 +194,11 @@ describe("voxkey reply (the agent Stop hook)", () => {
     writeFileSync(path.join(home, "config.json"), "{ broken");
     const broken = spawnSync(process.execPath, ["--import", "tsx", mainScript, "reply", "--agent", "codex"], {
       cwd: repositoryRoot,
-      input: JSON.stringify({ last_assistant_message: "still queued with defaults" }),
+      input: JSON.stringify({ last_assistant_message: "dropped, because the defaults are muted" }),
       encoding: "utf8",
       env: { ...process.env, VOXKEY_HOME: home },
     });
     expect([broken.status, broken.stdout, broken.stderr]).toEqual([0, "", ""]);
-    expect(queued()).toHaveLength(1);
+    expect(queued()).toEqual([]);
   });
 });

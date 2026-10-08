@@ -28,7 +28,6 @@ import {
   replyIdentity,
   speaksForFocus,
   surfaceIdentity,
-  toggleNarrationMute,
 } from "./inbox.js";
 
 const scratchRoot = fileURLToPath(new URL("../../.scratch/", import.meta.url));
@@ -131,13 +130,8 @@ describe("inbox", () => {
     expect(inboxNames().filter((name) => name.endsWith(".json"))).toEqual([]);
   });
 
-  it("keeps the queue while muted and empties it when narration is off", async () => {
-    queueReply({ markdown: "wait", source: "grok", agentReplyId: "", origin: { kind: "terminal" } });
-    expect(toggleNarrationMute()).toBe(true);
-    expect(Option.isNone(await claim())).toBe(true);
-    expect(inboxNames()).toHaveLength(1);
-
-    expect(toggleNarrationMute()).toBe(false);
+  it("empties the queue when narration is off", async () => {
+    queueReply({ markdown: "missed while off", source: "grok", agentReplyId: "", origin: { kind: "terminal" } });
     expect(Option.isNone(await claim("off"))).toBe(true);
     expect(inboxNames()).toEqual([]);
   });

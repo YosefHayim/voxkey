@@ -236,13 +236,12 @@ const strayVoxkeyProcesses = (): ReadonlyArray<number> =>
       return isWorker || isPill ? [Number(match?.[1])] : [];
     });
 
-/** A clean slate: stop the workers, kill any stray voxkey worker or pill, clear every lock, and unmute. */
+/** A clean slate: stop the workers, kill any stray voxkey worker or pill, and clear every lock. */
 export const resetWorkers: Effect.Effect<void> = Effect.gen(function* () {
   yield* stopWorkers;
   for (const pid of strayVoxkeyProcesses()) {
     signalGroup(pid, "SIGKILL");
   }
-  removeIfPresent(stateFile("narration-muted"));
 });
 
 /** Start the dictation worker (which starts narration) and wait until it reports ready or fails. */
