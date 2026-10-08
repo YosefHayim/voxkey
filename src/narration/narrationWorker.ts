@@ -17,8 +17,10 @@ import { loadSupertonic, type SupertonicEngine } from "./supertonic.js";
 /** The dictation worker sends SIGUSR2 to stop speech now (a tap, or a new hold). */
 const STOP_SPEECH_SIGNAL = "SIGUSR2";
 
-const speakNextReply = (engine: SupertonicEngine, player: ReturnType<typeof makeSpeechPlayer>) =>
+export const speakNextReply = (engine: SupertonicEngine, player: ReturnType<typeof makeSpeechPlayer>) =>
   Effect.gen(function* () {
+    // Before the claim, which can wait on Cmux: a stop that comes in meanwhile must still silence the reply.
+    player.reset();
     const config = yield* readConfigOrDefaults;
     // Before the dictation wait, so a reply that came in while muted is never kept for after an unmute.
     if (config.narrationMuted) {
@@ -35,7 +37,6 @@ const speakNextReply = (engine: SupertonicEngine, player: ReturnType<typeof make
       return "idle";
     }
 
-    player.reset();
     const spoken = yield* Effect.either(
       speakMarkdown({
         engine,
